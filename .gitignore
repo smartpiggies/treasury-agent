@@ -1,0 +1,35 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Node modules
+node_modules/
+
+# n8n data
+.n8n/
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Build outputs
+dist/
+build/
+
+# Credentials (never commit these!)
+*credentials*.json
+*secret*
+*.pem
+*.key
+
+# Claude Code local settings
+.claude/
