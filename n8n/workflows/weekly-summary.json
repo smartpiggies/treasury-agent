@@ -1,0 +1,94 @@
+{
+  "name": "Weekly Summary",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "trigger",
+      "name": "Monday 8 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fetch price history from Appwrite for the past week\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nconst weekAgo = new Date();\nweekAgo.setDate(weekAgo.getDate() - 7);\n\nif (!endpoint || !apiKey) {\n  // Return mock data for testing\n  return {\n    prices: [\n      { price_usd: 3100 },\n      { price_usd: 3200 },\n      { price_usd: 3150 },\n      { price_usd: 3250 },\n      { price_usd: 3180 },\n    ],\n    token: 'ETH',\n  };\n}\n\nconst response = await fetch(\n  `${endpoint}/databases/${databaseId}/collections/price_history/documents?` +\n  new URLSearchParams({\n    queries: JSON.stringify([\n      `greaterThan(\"timestamp\", \"${weekAgo.toISOString()}\")`,\n      'equal(\"token\", \"ETH\")',\n      'orderDesc(\"timestamp\")',\n      'limit(1000)',\n    ]),\n  }),\n  {\n    headers: {\n      'X-Appwrite-Project': projectId,\n      'X-Appwrite-Key': apiKey,\n    },\n  }\n);\n\nconst data = await response.json();\n\nreturn {\n  prices: data.documents || [],\n  token: 'ETH',\n};"
+      },
+      "id": "fetch-history",
+      "name": "Fetch Price History",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fetch execution history from Appwrite\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nconst weekAgo = new Date();\nweekAgo.setDate(weekAgo.getDate() - 7);\n\nif (!endpoint || !apiKey) {\n  return {\n    executions: [],\n    totalVolume: 0,\n    count: 0,\n  };\n}\n\nconst response = await fetch(\n  `${endpoint}/databases/${databaseId}/collections/executions/documents?` +\n  new URLSearchParams({\n    queries: JSON.stringify([\n      `greaterThan(\"timestamp\", \"${weekAgo.toISOString()}\")`,\n      'orderDesc(\"timestamp\")',\n      'limit(100)',\n    ]),\n  }),\n  {\n    headers: {\n      'X-Appwrite-Project': projectId,\n      'X-Appwrite-Key': apiKey,\n    },\n  }\n);\n\nconst data = await response.json();\nconst executions = data.documents || [];\n\n// Calculate totals\nlet totalVolume = 0;\nlet completedCount = 0;\nlet failedCount = 0;\n\nfor (const exec of executions) {\n  if (exec.amount_usd) {\n    totalVolume += exec.amount_usd;\n  }\n  if (exec.status === 'completed') completedCount++;\n  if (exec.status === 'failed') failedCount++;\n}\n\nreturn {\n  executions,\n  totalVolume,\n  count: executions.length,\n  completedCount,\n  failedCount,\n};"
+      },
+      "id": "fetch-executions",
+      "name": "Fetch Executions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate statistics and format report\nconst priceData = $('Fetch Price History').first().json;\nconst execData = $('Fetch Executions').first().json;\n\nconst prices = priceData.prices.map(p => p.price_usd).filter(p => p > 0);\n\nlet stats = {\n  high: 0,\n  low: 0,\n  average: 0,\n  volatility: 0,\n};\n\nif (prices.length > 0) {\n  stats.high = Math.max(...prices);\n  stats.low = Math.min(...prices);\n  stats.average = prices.reduce((a, b) => a + b, 0) / prices.length;\n  \n  // Calculate volatility (standard deviation as % of mean)\n  const mean = stats.average;\n  const squareDiffs = prices.map(p => Math.pow(p - mean, 2));\n  const avgSquareDiff = squareDiffs.reduce((a, b) => a + b, 0) / squareDiffs.length;\n  const stdDev = Math.sqrt(avgSquareDiff);\n  stats.volatility = (stdDev / mean) * 100;\n}\n\nconst formatCurrency = (n) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;\n\nreturn {\n  token: priceData.token,\n  priceHigh: formatCurrency(stats.high),\n  priceLow: formatCurrency(stats.low),\n  priceAvg: formatCurrency(stats.average),\n  volatility: stats.volatility.toFixed(2) + '%',\n  totalVolume: formatCurrency(execData.totalVolume),\n  executionCount: execData.count,\n  completedCount: execData.completedCount,\n  failedCount: execData.failedCount,\n  dataPoints: prices.length,\n  weekStart: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toLocaleDateString(),\n  weekEnd: new Date().toLocaleDateString(),\n};"
+      },
+      "id": "calculate-stats",
+      "name": "Calculate Statistics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DISCORD_WEBHOOK_REPORTS }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"embeds\": [{\n    \"title\": \"Weekly Performance Summary\",\n    \"description\": \"{{ $json.weekStart }} - {{ $json.weekEnd }}\",\n    \"color\": 5814783,\n    \"fields\": [\n      {\n        \"name\": \"{{ $json.token }} Price Range\",\n        \"value\": \"High: {{ $json.priceHigh }}\\nLow: {{ $json.priceLow }}\\nAvg: {{ $json.priceAvg }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Volatility\",\n        \"value\": \"{{ $json.volatility }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Data Points\",\n        \"value\": \"{{ $json.dataPoints }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Execution Volume\",\n        \"value\": \"{{ $json.totalVolume }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Executions\",\n        \"value\": \"{{ $json.executionCount }} total\\n{{ $json.completedCount }} completed\\n{{ $json.failedCount }} failed\",\n        \"inline\": true\n      }\n    ],\n    \"footer\": {\n      \"text\": \"Treasury Ops Bot - Weekly Summary\"\n    },\n    \"timestamp\": \"{{ $now.toISO() }}\"\n  }]\n}"
+      },
+      "id": "discord-summary",
+      "name": "Send to Discord",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 100]
+    }
+  ],
+  "connections": {
+    "Monday 8 AM": {
+      "main": [
+        [
+          { "node": "Fetch Price History", "type": "main", "index": 0 },
+          { "node": "Fetch Executions", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Fetch Price History": {
+      "main": [
+        [{ "node": "Calculate Statistics", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Executions": {
+      "main": [
+        [{ "node": "Calculate Statistics", "type": "main", "index": 0 }]
+      ]
+    },
+    "Calculate Statistics": {
+      "main": [
+        [{ "node": "Send to Discord", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

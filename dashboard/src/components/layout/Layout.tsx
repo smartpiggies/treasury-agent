@@ -1,0 +1,64 @@
+import { Link, useLocation } from 'react-router-dom';
+import { cn } from '@/lib/utils';
+import {
+  LayoutDashboard,
+  BarChart3,
+  History,
+  Settings,
+  Wallet,
+} from 'lucide-react';
+
+interface LayoutProps {
+  children: React.ReactNode;
+}
+
+const navItems = [
+  { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/analytics', label: 'Analytics', icon: BarChart3 },
+  { path: '/history', label: 'History', icon: History },
+  { path: '/settings', label: 'Settings', icon: Settings },
+];
+
+export function Layout({ children }: LayoutProps) {
+  const location = useLocation();
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-14 items-center">
+          <div className="flex items-center gap-2 font-semibold">
+            <Wallet className="h-5 w-5" />
+            <span>Treasury Ops</span>
+          </div>
+          <nav className="ml-8 flex items-center gap-6">
+            {navItems.map(({ path, label, icon: Icon }) => (
+              <Link
+                key={path}
+                to={path}
+                className={cn(
+                  'flex items-center gap-2 text-sm font-medium transition-colors hover:text-primary',
+                  location.pathname === path
+                    ? 'text-primary'
+                    : 'text-muted-foreground'
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </Link>
+            ))}
+          </nav>
+          <div className="ml-auto flex items-center gap-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="h-2 w-2 rounded-full bg-green-500" />
+              Connected
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main content */}
+      <main className="container py-6">{children}</main>
+    </div>
+  );
+}

@@ -1,0 +1,125 @@
+{
+  "name": "Price Monitor",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "trigger",
+      "name": "Every 5 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fetch ETH/USDC price from Uniswap v3 subgraph\nconst query = `{\n  pool(id: \"0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8\") {\n    token0Price\n    token1Price\n  }\n}`;\n\nconst response = await fetch(\n  'https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3',\n  {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify({ query }),\n  }\n);\n\nconst data = await response.json();\nconst pool = data.data?.pool;\n\nif (!pool) {\n  throw new Error('Failed to fetch Uniswap pool data');\n}\n\nconst ethPrice = parseFloat(pool.token0Price);\n\nreturn {\n  token: 'ETH',\n  price: ethPrice,\n  timestamp: new Date().toISOString(),\n};"
+      },
+      "id": "fetch-price",
+      "name": "Fetch ETH Price",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check price against thresholds\nconst price = $input.first().json.price;\nconst token = $input.first().json.token;\n\n// Default thresholds - can be overridden via environment\nconst highThreshold = parseFloat($env.PRICE_ALERT_HIGH) || 3500;\nconst lowThreshold = parseFloat($env.PRICE_ALERT_LOW) || 2800;\n\nlet alertType = null;\nlet severity = 'warning';\nlet message = '';\n\nif (price >= highThreshold) {\n  alertType = 'price_high';\n  message = `${token} price ($${price.toFixed(2)}) exceeded high threshold ($${highThreshold})`;\n  severity = 'warning';\n} else if (price <= lowThreshold) {\n  alertType = 'price_low';\n  message = `${token} price ($${price.toFixed(2)}) dropped below low threshold ($${lowThreshold})`;\n  severity = 'critical';\n}\n\nreturn {\n  token,\n  price,\n  alertType,\n  severity,\n  message,\n  shouldAlert: alertType !== null,\n  timestamp: new Date().toISOString(),\n};"
+      },
+      "id": "check-thresholds",
+      "name": "Check Thresholds",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.shouldAlert }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-alert",
+      "name": "Should Alert?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DISCORD_WEBHOOK_ALERTS }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"embeds\": [{\n    \"title\": \"Price Alert\",\n    \"description\": \"{{ $json.message }}\",\n    \"color\": {{ $json.severity === 'critical' ? 15158332 : 16776960 }},\n    \"fields\": [\n      {\n        \"name\": \"Token\",\n        \"value\": \"{{ $json.token }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Current Price\",\n        \"value\": \"${{ $json.price.toFixed(2) }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Alert Type\",\n        \"value\": \"{{ $json.alertType }}\",\n        \"inline\": true\n      }\n    ],\n    \"footer\": {\n      \"text\": \"Treasury Ops Bot - Price Monitor\"\n    },\n    \"timestamp\": \"{{ $json.timestamp }}\"\n  }]\n}"
+      },
+      "id": "discord-alert",
+      "name": "Send Alert to Discord",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, -100]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Save alert to Appwrite\nconst data = $input.first().json;\n\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nif (!endpoint || !apiKey) {\n  console.log('Appwrite not configured, skipping save');\n  return { saved: false };\n}\n\nawait fetch(\n  `${endpoint}/databases/${databaseId}/collections/alerts/documents`,\n  {\n    method: 'POST',\n    headers: {\n      'Content-Type': 'application/json',\n      'X-Appwrite-Project': projectId,\n      'X-Appwrite-Key': apiKey,\n    },\n    body: JSON.stringify({\n      documentId: 'unique()',\n      data: {\n        timestamp: data.timestamp,\n        type: data.alertType,\n        severity: data.severity,\n        message: data.message,\n        token: data.token,\n        threshold: data.alertType === 'price_high' ? parseFloat($env.PRICE_ALERT_HIGH) : parseFloat($env.PRICE_ALERT_LOW),\n        actual_value: data.price,\n        acknowledged: false,\n      },\n    }),\n  }\n);\n\nreturn { saved: true };"
+      },
+      "id": "save-alert",
+      "name": "Save Alert to Appwrite",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 100]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Always save price to history\nconst data = $('Check Thresholds').first().json;\n\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nif (!endpoint || !apiKey) {\n  return { saved: false, reason: 'Appwrite not configured' };\n}\n\nawait fetch(\n  `${endpoint}/databases/${databaseId}/collections/price_history/documents`,\n  {\n    method: 'POST',\n    headers: {\n      'Content-Type': 'application/json',\n      'X-Appwrite-Project': projectId,\n      'X-Appwrite-Key': apiKey,\n    },\n    body: JSON.stringify({\n      documentId: 'unique()',\n      data: {\n        timestamp: data.timestamp,\n        token: data.token,\n        price_usd: data.price,\n        source: 'uniswap',\n      },\n    }),\n  }\n);\n\nreturn { saved: true, price: data.price };"
+      },
+      "id": "save-price",
+      "name": "Save Price to History",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 200]
+    }
+  ],
+  "connections": {
+    "Every 5 Minutes": {
+      "main": [
+        [{ "node": "Fetch ETH Price", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch ETH Price": {
+      "main": [
+        [{ "node": "Check Thresholds", "type": "main", "index": 0 }]
+      ]
+    },
+    "Check Thresholds": {
+      "main": [
+        [
+          { "node": "Should Alert?", "type": "main", "index": 0 },
+          { "node": "Save Price to History", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Should Alert?": {
+      "main": [
+        [
+          { "node": "Send Alert to Discord", "type": "main", "index": 0 },
+          { "node": "Save Alert to Appwrite", "type": "main", "index": 0 }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

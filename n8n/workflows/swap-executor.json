@@ -1,0 +1,213 @@
+{
+  "name": "Swap Executor",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "swap-executor",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Swap Request Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "swap-executor"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate swap request\nconst body = $input.first().json.body;\n\nconst required = ['sourceChain', 'destChain', 'sourceToken', 'destToken', 'amount'];\nconst missing = required.filter(f => !body[f]);\n\nif (missing.length > 0) {\n  throw new Error(`Missing required fields: ${missing.join(', ')}`);\n}\n\nconst amount = parseFloat(body.amount);\nif (isNaN(amount) || amount <= 0) {\n  throw new Error('Invalid amount');\n}\n\n// Determine route: same-chain = Uniswap, cross-chain = LI.FI\nconst isCrossChain = body.sourceChain !== body.destChain;\nconst route = isCrossChain ? 'lifi' : 'uniswap';\n\nreturn {\n  ...body,\n  amount,\n  route,\n  isCrossChain,\n  timestamp: new Date().toISOString(),\n};"
+      },
+      "id": "validate",
+      "name": "Validate Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Create execution record in Appwrite\nconst data = $input.first().json;\n\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nif (!endpoint || !apiKey) {\n  return { ...data, executionId: 'local-' + Date.now() };\n}\n\nconst response = await fetch(\n  `${endpoint}/databases/${databaseId}/collections/executions/documents`,\n  {\n    method: 'POST',\n    headers: {\n      'Content-Type': 'application/json',\n      'X-Appwrite-Project': projectId,\n      'X-Appwrite-Key': apiKey,\n    },\n    body: JSON.stringify({\n      documentId: 'unique()',\n      data: {\n        timestamp: data.timestamp,\n        type: 'swap',\n        source_chain: data.sourceChain,\n        dest_chain: data.destChain,\n        source_token: data.sourceToken,\n        dest_token: data.destToken,\n        amount: data.amount.toString(),\n        status: 'pending',\n        route: data.route,\n        reason: data.reason || '',\n        requester: 'webhook',\n      },\n    }),\n  }\n);\n\nconst result = await response.json();\n\nreturn {\n  ...data,\n  executionId: result.$id,\n};"
+      },
+      "id": "create-execution",
+      "name": "Create Execution Record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DISCORD_WEBHOOK_REPORTS }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"embeds\": [{\n    \"title\": \"Swap Request Received\",\n    \"description\": \"A new swap request is pending confirmation.\",\n    \"color\": 3447003,\n    \"fields\": [\n      {\n        \"name\": \"From\",\n        \"value\": \"{{ $json.amount }} {{ $json.sourceToken }} on {{ $json.sourceChain }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"To\",\n        \"value\": \"{{ $json.destToken }} on {{ $json.destChain }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Route\",\n        \"value\": \"{{ $json.route }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Reason\",\n        \"value\": \"{{ $json.reason || 'Not specified' }}\"\n      },\n      {\n        \"name\": \"Execution ID\",\n        \"value\": \"`{{ $json.executionId }}`\"\n      }\n    ],\n    \"footer\": {\n      \"text\": \"Confirm via dashboard to execute\"\n    },\n    \"timestamp\": \"{{ $json.timestamp }}\"\n  }]\n}"
+      },
+      "id": "notify-discord",
+      "name": "Notify Discord",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"executionId\": \"{{ $json.executionId }}\",\n  \"status\": \"pending\",\n  \"message\": \"Swap request created. Confirm via dashboard to execute.\",\n  \"route\": \"{{ $json.route }}\"\n}"
+      },
+      "id": "respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [880, 0]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "swap-confirm",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "confirm-webhook",
+      "name": "Confirm Swap Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "swap-confirm"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get execution details and prepare for swap\nconst { executionId, action } = $input.first().json.body;\n\nif (!executionId) {\n  throw new Error('executionId is required');\n}\n\nif (action === 'cancel') {\n  return { executionId, cancelled: true };\n}\n\n// Fetch execution from Appwrite\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nconst response = await fetch(\n  `${endpoint}/databases/${databaseId}/collections/executions/documents/${executionId}`,\n  {\n    headers: {\n      'X-Appwrite-Project': projectId,\n      'X-Appwrite-Key': apiKey,\n    },\n  }\n);\n\nconst execution = await response.json();\n\nreturn {\n  executionId,\n  cancelled: false,\n  execution,\n};"
+      },
+      "id": "get-execution",
+      "name": "Get Execution Details",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.cancelled }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-cancelled",
+      "name": "Cancelled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Execute swap via LI.FI or Uniswap\nconst data = $input.first().json;\nconst exec = data.execution;\n\nconst route = exec.route;\nlet txHash = null;\nlet error = null;\n\ntry {\n  if (route === 'lifi') {\n    // LI.FI cross-chain swap\n    const quoteParams = new URLSearchParams({\n      fromChain: exec.source_chain.toUpperCase().slice(0, 3),\n      toChain: exec.dest_chain.toUpperCase().slice(0, 3),\n      fromToken: exec.source_token,\n      toToken: exec.dest_token,\n      fromAmount: (parseFloat(exec.amount) * 1e6).toString(), // Assuming 6 decimals for USDC\n      fromAddress: $env.TREASURY_ADDRESS,\n      integrator: $env.LIFI_INTEGRATOR_ID || 'treasury-ops-bot',\n    });\n\n    const quoteResponse = await fetch(`https://li.quest/v1/quote?${quoteParams}`);\n    const quote = await quoteResponse.json();\n\n    if (quote.error) {\n      throw new Error(quote.error.message || 'LI.FI quote failed');\n    }\n\n    // In production, sign and send the transaction\n    // For POC, we'll simulate success\n    txHash = '0x' + 'simulation'.padStart(64, '0');\n  } else {\n    // Uniswap same-chain swap\n    // In production, use Uniswap SDK or direct contract call\n    txHash = '0x' + 'simulation'.padStart(64, '0');\n  }\n} catch (e) {\n  error = e.message;\n}\n\nreturn {\n  executionId: data.executionId,\n  success: !error,\n  txHash,\n  error,\n  route,\n};"
+      },
+      "id": "execute-swap",
+      "name": "Execute Swap",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Update execution status in Appwrite\nconst data = $input.first().json;\n\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nif (!endpoint || !apiKey) {\n  return data;\n}\n\nawait fetch(\n  `${endpoint}/databases/${databaseId}/collections/executions/documents/${data.executionId}`,\n  {\n    method: 'PATCH',\n    headers: {\n      'Content-Type': 'application/json',\n      'X-Appwrite-Project': projectId,\n      'X-Appwrite-Key': apiKey,\n    },\n    body: JSON.stringify({\n      data: {\n        status: data.success ? 'completed' : 'failed',\n        tx_hash: data.txHash || '',\n        error: data.error || '',\n        completed_at: new Date().toISOString(),\n      },\n    }),\n  }\n);\n\nreturn data;"
+      },
+      "id": "update-status",
+      "name": "Update Execution Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": {{ $json.success }},\n  \"executionId\": \"{{ $json.executionId }}\",\n  \"txHash\": \"{{ $json.txHash }}\",\n  \"error\": \"{{ $json.error }}\"\n}"
+      },
+      "id": "respond-confirm",
+      "name": "Respond Confirm",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1100, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mark as cancelled in Appwrite\nconst data = $input.first().json;\n\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nif (endpoint && apiKey) {\n  await fetch(\n    `${endpoint}/databases/${databaseId}/collections/executions/documents/${data.executionId}`,\n    {\n      method: 'PATCH',\n      headers: {\n        'Content-Type': 'application/json',\n        'X-Appwrite-Project': projectId,\n        'X-Appwrite-Key': apiKey,\n      },\n      body: JSON.stringify({\n        data: {\n          status: 'cancelled',\n          completed_at: new Date().toISOString(),\n        },\n      }),\n    }\n  );\n}\n\nreturn { cancelled: true, executionId: data.executionId };"
+      },
+      "id": "cancel-execution",
+      "name": "Cancel Execution",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"executionId\": \"{{ $json.executionId }}\",\n  \"status\": \"cancelled\"\n}"
+      },
+      "id": "respond-cancel",
+      "name": "Respond Cancel",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [880, 200]
+    }
+  ],
+  "connections": {
+    "Swap Request Webhook": {
+      "main": [
+        [{ "node": "Validate Request", "type": "main", "index": 0 }]
+      ]
+    },
+    "Validate Request": {
+      "main": [
+        [{ "node": "Create Execution Record", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create Execution Record": {
+      "main": [
+        [{ "node": "Notify Discord", "type": "main", "index": 0 }]
+      ]
+    },
+    "Notify Discord": {
+      "main": [
+        [{ "node": "Respond to Webhook", "type": "main", "index": 0 }]
+      ]
+    },
+    "Confirm Swap Webhook": {
+      "main": [
+        [{ "node": "Get Execution Details", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Execution Details": {
+      "main": [
+        [{ "node": "Cancelled?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Cancelled?": {
+      "main": [
+        [{ "node": "Cancel Execution", "type": "main", "index": 0 }],
+        [{ "node": "Execute Swap", "type": "main", "index": 0 }]
+      ]
+    },
+    "Cancel Execution": {
+      "main": [
+        [{ "node": "Respond Cancel", "type": "main", "index": 0 }]
+      ]
+    },
+    "Execute Swap": {
+      "main": [
+        [{ "node": "Update Execution Status", "type": "main", "index": 0 }]
+      ]
+    },
+    "Update Execution Status": {
+      "main": [
+        [{ "node": "Respond Confirm", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -1,0 +1,85 @@
+# Treasury Ops Bot - Local Development
+#
+# This docker-compose runs n8n for local workflow development.
+# For Appwrite, use the official Appwrite docker-compose or cloud instance.
+#
+# Usage:
+#   docker-compose up -d
+#   Open http://localhost:5678 for n8n
+#
+# Note: For production on Hostinger, these services run separately.
+
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: treasury-n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      # Basic config
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5678/
+
+      # Timezone
+      - GENERIC_TIMEZONE=UTC
+      - TZ=UTC
+
+      # Execution settings
+      - EXECUTIONS_DATA_SAVE_ON_ERROR=all
+      - EXECUTIONS_DATA_SAVE_ON_SUCCESS=all
+      - EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS=true
+
+      # Environment variables for workflows (from .env file)
+      - CIRCLE_API_KEY=${CIRCLE_API_KEY:-}
+      - CIRCLE_TREASURY_ADDRESS=${CIRCLE_TREASURY_ADDRESS:-}
+      - LIFI_INTEGRATOR_ID=${LIFI_INTEGRATOR_ID:-treasury-ops-bot}
+      - GRAPH_API_KEY=${GRAPH_API_KEY:-}
+      - DISCORD_WEBHOOK_REPORTS=${DISCORD_WEBHOOK_REPORTS:-}
+      - DISCORD_WEBHOOK_ALERTS=${DISCORD_WEBHOOK_ALERTS:-}
+      - APPWRITE_ENDPOINT=${APPWRITE_ENDPOINT:-}
+      - APPWRITE_PROJECT_ID=${APPWRITE_PROJECT_ID:-}
+      - APPWRITE_API_KEY=${APPWRITE_API_KEY:-}
+      - APPWRITE_DATABASE_ID=${APPWRITE_DATABASE_ID:-treasury}
+      - TREASURY_PRIVATE_KEY=${TREASURY_PRIVATE_KEY:-}
+      - TREASURY_ADDRESS=${TREASURY_ADDRESS:-}
+      - RPC_ETHEREUM=${RPC_ETHEREUM:-}
+      - RPC_ARBITRUM=${RPC_ARBITRUM:-}
+      - RPC_BASE=${RPC_BASE:-}
+      - RPC_POLYGON=${RPC_POLYGON:-}
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/home/node/workflows:ro
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5678/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  n8n_data:
+    driver: local
+
+# =============================================================================
+# APPWRITE SETUP
+# =============================================================================
+# Appwrite requires its own docker-compose with multiple services.
+# For local development, either:
+#
+# Option 1: Use Appwrite Cloud (recommended for hackathon)
+#   - Sign up at https://cloud.appwrite.io
+#   - Create project, get endpoint and project ID
+#   - Add to .env file
+#
+# Option 2: Self-host Appwrite locally
+#   - Download: https://appwrite.io/docs/installation
+#   - Run: docker run -it --rm \
+#       --volume /var/run/docker.sock:/var/run/docker.sock \
+#       appwrite/appwrite:latest
+#   - Follow the setup wizard
+#
+# Option 3: Use the Hostinger instance directly
+#   - Configure .env with Hostinger Appwrite endpoint
+# =============================================================================

@@ -1,0 +1,416 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Treasury Ops Bot - Appwrite Database Schema",
+  "description": "Database collections for the Treasury Ops Bot. Create these in your Appwrite console or via CLI.",
+  "database": {
+    "id": "treasury",
+    "name": "Treasury Database"
+  },
+  "collections": {
+    "price_history": {
+      "id": "price_history",
+      "name": "Price History",
+      "description": "Historical price snapshots from monitoring workflows",
+      "permissions": {
+        "read": ["role:all"],
+        "create": ["team:operators"],
+        "update": ["team:operators"],
+        "delete": ["team:admins"]
+      },
+      "attributes": [
+        {
+          "key": "timestamp",
+          "type": "datetime",
+          "required": true,
+          "description": "When the price was recorded"
+        },
+        {
+          "key": "token",
+          "type": "string",
+          "size": 10,
+          "required": true,
+          "description": "Token symbol (ETH, BTC, USDC, etc.)"
+        },
+        {
+          "key": "price_usd",
+          "type": "double",
+          "required": true,
+          "description": "Price in USD"
+        },
+        {
+          "key": "source",
+          "type": "string",
+          "size": 50,
+          "required": true,
+          "description": "Data source (uniswap, coingecko, chainlink)"
+        },
+        {
+          "key": "chain",
+          "type": "string",
+          "size": 20,
+          "required": false,
+          "default": "ethereum",
+          "description": "Chain where price was fetched"
+        }
+      ],
+      "indexes": [
+        {
+          "key": "idx_token_timestamp",
+          "type": "key",
+          "attributes": ["token", "timestamp"],
+          "orders": ["ASC", "DESC"]
+        },
+        {
+          "key": "idx_timestamp",
+          "type": "key",
+          "attributes": ["timestamp"],
+          "orders": ["DESC"]
+        }
+      ]
+    },
+    "executions": {
+      "id": "executions",
+      "name": "Executions",
+      "description": "Record of all swap, rebalance, and transfer operations",
+      "permissions": {
+        "read": ["role:all"],
+        "create": ["team:operators"],
+        "update": ["team:operators"],
+        "delete": ["team:admins"]
+      },
+      "attributes": [
+        {
+          "key": "timestamp",
+          "type": "datetime",
+          "required": true,
+          "description": "When the execution was initiated"
+        },
+        {
+          "key": "type",
+          "type": "enum",
+          "elements": ["swap", "rebalance", "transfer"],
+          "required": true,
+          "description": "Type of operation"
+        },
+        {
+          "key": "source_chain",
+          "type": "string",
+          "size": 20,
+          "required": true,
+          "description": "Source chain (ethereum, arbitrum, base, polygon)"
+        },
+        {
+          "key": "dest_chain",
+          "type": "string",
+          "size": 20,
+          "required": true,
+          "description": "Destination chain"
+        },
+        {
+          "key": "source_token",
+          "type": "string",
+          "size": 10,
+          "required": true,
+          "description": "Source token symbol"
+        },
+        {
+          "key": "dest_token",
+          "type": "string",
+          "size": 10,
+          "required": true,
+          "description": "Destination token symbol"
+        },
+        {
+          "key": "amount",
+          "type": "string",
+          "size": 50,
+          "required": true,
+          "description": "Amount in human-readable format"
+        },
+        {
+          "key": "amount_usd",
+          "type": "double",
+          "required": false,
+          "description": "USD value at time of execution"
+        },
+        {
+          "key": "status",
+          "type": "enum",
+          "elements": ["pending", "awaiting_confirmation", "confirmed", "executing", "completed", "failed", "cancelled"],
+          "required": true,
+          "default": "pending",
+          "description": "Current execution status"
+        },
+        {
+          "key": "tx_hash",
+          "type": "string",
+          "size": 100,
+          "required": false,
+          "description": "Transaction hash once submitted"
+        },
+        {
+          "key": "route",
+          "type": "enum",
+          "elements": ["uniswap", "lifi", "circle"],
+          "required": false,
+          "description": "Which service executed the operation"
+        },
+        {
+          "key": "requester",
+          "type": "string",
+          "size": 100,
+          "required": false,
+          "description": "Who/what initiated (workflow name, user ID, API)"
+        },
+        {
+          "key": "approver",
+          "type": "string",
+          "size": 100,
+          "required": false,
+          "description": "Who approved the execution"
+        },
+        {
+          "key": "approved_at",
+          "type": "datetime",
+          "required": false,
+          "description": "When approval was given"
+        },
+        {
+          "key": "completed_at",
+          "type": "datetime",
+          "required": false,
+          "description": "When execution completed"
+        },
+        {
+          "key": "error",
+          "type": "string",
+          "size": 500,
+          "required": false,
+          "description": "Error message if failed"
+        },
+        {
+          "key": "gas_used",
+          "type": "string",
+          "size": 50,
+          "required": false,
+          "description": "Gas used for the transaction"
+        },
+        {
+          "key": "gas_price",
+          "type": "string",
+          "size": 50,
+          "required": false,
+          "description": "Gas price at execution"
+        },
+        {
+          "key": "slippage",
+          "type": "double",
+          "required": false,
+          "description": "Actual slippage percentage"
+        },
+        {
+          "key": "reason",
+          "type": "string",
+          "size": 200,
+          "required": false,
+          "description": "Reason for the operation"
+        }
+      ],
+      "indexes": [
+        {
+          "key": "idx_status",
+          "type": "key",
+          "attributes": ["status"],
+          "orders": ["ASC"]
+        },
+        {
+          "key": "idx_timestamp",
+          "type": "key",
+          "attributes": ["timestamp"],
+          "orders": ["DESC"]
+        },
+        {
+          "key": "idx_type_status",
+          "type": "key",
+          "attributes": ["type", "status"],
+          "orders": ["ASC", "ASC"]
+        }
+      ]
+    },
+    "alerts": {
+      "id": "alerts",
+      "name": "Alerts",
+      "description": "Alert history for price thresholds and system events",
+      "permissions": {
+        "read": ["role:all"],
+        "create": ["team:operators"],
+        "update": ["team:operators"],
+        "delete": ["team:admins"]
+      },
+      "attributes": [
+        {
+          "key": "timestamp",
+          "type": "datetime",
+          "required": true,
+          "description": "When the alert was triggered"
+        },
+        {
+          "key": "type",
+          "type": "enum",
+          "elements": ["price_high", "price_low", "execution_failed", "limit_reached", "system_error"],
+          "required": true,
+          "description": "Type of alert"
+        },
+        {
+          "key": "severity",
+          "type": "enum",
+          "elements": ["info", "warning", "critical"],
+          "required": true,
+          "default": "warning",
+          "description": "Alert severity level"
+        },
+        {
+          "key": "message",
+          "type": "string",
+          "size": 500,
+          "required": true,
+          "description": "Human-readable alert message"
+        },
+        {
+          "key": "token",
+          "type": "string",
+          "size": 10,
+          "required": false,
+          "description": "Related token (for price alerts)"
+        },
+        {
+          "key": "threshold",
+          "type": "double",
+          "required": false,
+          "description": "Threshold that was crossed"
+        },
+        {
+          "key": "actual_value",
+          "type": "double",
+          "required": false,
+          "description": "Actual value that triggered alert"
+        },
+        {
+          "key": "acknowledged",
+          "type": "boolean",
+          "required": true,
+          "default": false,
+          "description": "Whether alert has been acknowledged"
+        },
+        {
+          "key": "acknowledged_by",
+          "type": "string",
+          "size": 100,
+          "required": false,
+          "description": "Who acknowledged the alert"
+        },
+        {
+          "key": "acknowledged_at",
+          "type": "datetime",
+          "required": false,
+          "description": "When alert was acknowledged"
+        },
+        {
+          "key": "related_execution",
+          "type": "string",
+          "size": 50,
+          "required": false,
+          "description": "Related execution document ID"
+        }
+      ],
+      "indexes": [
+        {
+          "key": "idx_acknowledged",
+          "type": "key",
+          "attributes": ["acknowledged"],
+          "orders": ["ASC"]
+        },
+        {
+          "key": "idx_type_timestamp",
+          "type": "key",
+          "attributes": ["type", "timestamp"],
+          "orders": ["ASC", "DESC"]
+        },
+        {
+          "key": "idx_severity",
+          "type": "key",
+          "attributes": ["severity", "acknowledged"],
+          "orders": ["ASC", "ASC"]
+        }
+      ]
+    },
+    "balances": {
+      "id": "balances",
+      "name": "Balances",
+      "description": "Treasury balance snapshots across chains",
+      "permissions": {
+        "read": ["role:all"],
+        "create": ["team:operators"],
+        "update": ["team:operators"],
+        "delete": ["team:admins"]
+      },
+      "attributes": [
+        {
+          "key": "timestamp",
+          "type": "datetime",
+          "required": true,
+          "description": "When balance was recorded"
+        },
+        {
+          "key": "chain",
+          "type": "string",
+          "size": 20,
+          "required": true,
+          "description": "Chain name"
+        },
+        {
+          "key": "token",
+          "type": "string",
+          "size": 10,
+          "required": true,
+          "description": "Token symbol"
+        },
+        {
+          "key": "balance",
+          "type": "string",
+          "size": 50,
+          "required": true,
+          "description": "Token balance (raw)"
+        },
+        {
+          "key": "balance_usd",
+          "type": "double",
+          "required": false,
+          "description": "USD value of balance"
+        },
+        {
+          "key": "source",
+          "type": "string",
+          "size": 50,
+          "required": true,
+          "default": "circle",
+          "description": "Data source (circle, rpc)"
+        }
+      ],
+      "indexes": [
+        {
+          "key": "idx_chain_token",
+          "type": "key",
+          "attributes": ["chain", "token"],
+          "orders": ["ASC", "ASC"]
+        },
+        {
+          "key": "idx_timestamp",
+          "type": "key",
+          "attributes": ["timestamp"],
+          "orders": ["DESC"]
+        }
+      ]
+    }
+  }
+}
