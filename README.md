@@ -26,8 +26,10 @@ Treasury Ops Bot is an autonomous treasury management agent built on n8n workflo
 │         ▼                  ▼                                    │
 │  ┌─────────────────────────────────────┐                        │
 │  │            Data Layer               │                        │
-│  │  • Google Sheets (logs, history)    │                        │
-│  │  • Appwrite (auth, optional DB)     │                        │
+│  │  • Appwrite (auth + database)       │                        │
+│  │    - price_history collection       │                        │
+│  │    - executions collection          │                        │
+│  │    - alerts collection              │                        │
 │  └─────────────────────────────────────┘                        │
 │                                                                 │
 │  ┌─────────────────────────────────────────────────────────────┐│
@@ -72,11 +74,11 @@ treasury-agent/
 
 ## Tech Stack
 
-- **Orchestration**: n8n (self-hosted)
+- **Orchestration**: n8n (self-hosted on Hostinger)
 - **Dashboard**: React + Vite + Tailwind + shadcn/ui
-- **Auth**: Appwrite
-- **Data**: Google Sheets
-- **Notifications**: Discord webhooks + interactive buttons
+- **Auth & Data**: Appwrite (self-hosted on Hostinger)
+- **Notifications**: Discord webhooks
+- **Hosting**: Hostinger VPS (n8n, Appwrite, dashboard)
 
 ## Partner Integrations
 
@@ -90,10 +92,11 @@ treasury-agent/
 
 ### Prerequisites
 
-- Docker with n8n running
-- Appwrite instance
+- Hostinger VPS with Docker
+- n8n instance running
+- Appwrite instance running
 - Discord server with webhook
-- API keys: Circle, LI.FI (optional), Google Sheets
+- API keys: Circle, LI.FI (optional)
 
 ### Setup
 

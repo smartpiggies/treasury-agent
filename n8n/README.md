@@ -46,10 +46,11 @@ Set up these credentials in n8n before activating workflows:
 - **Type**: Discord Webhook
 - **Webhook URL**: Your Discord webhook URL
 
-### 3. Google Sheets
+### 3. Appwrite
 
-- **Type**: Google Sheets OAuth2 or Service Account
-- **Scopes**: `spreadsheets`, `drive.file`
+- **Type**: Header Auth
+- **Header 1**: `X-Appwrite-Project` = `{{$env.APPWRITE_PROJECT_ID}}`
+- **Header 2**: `X-Appwrite-Key` = `{{$env.APPWRITE_API_KEY}}`
 
 ## Environment Variables
 
@@ -61,7 +62,10 @@ CIRCLE_API_KEY=your_circle_api_key
 TREASURY_ADDRESS=your_treasury_address
 DISCORD_WEBHOOK_REPORTS=your_webhook_url
 DISCORD_WEBHOOK_ALERTS=your_webhook_url
-GOOGLE_SHEET_ID=your_sheet_id
+APPWRITE_ENDPOINT=https://your-appwrite.hostinger.com/v1
+APPWRITE_PROJECT_ID=treasury-ops
+APPWRITE_API_KEY=your_api_key
+APPWRITE_DATABASE_ID=treasury
 ```
 
 Access in workflows via: `{{$env.CIRCLE_API_KEY}}`
@@ -82,7 +86,7 @@ Trigger (9am) → Fetch Circle Balance → Fetch Uniswap Price → Format Report
 ### Price Monitor
 
 ```
-Trigger (5min) → Fetch Price → Check Thresholds → [Alert if triggered] → Log to Sheets
+Trigger (5min) → Fetch Price → Check Thresholds → [Alert if triggered] → Log to Appwrite
 ```
 
 **Configurable thresholds**:
@@ -96,7 +100,7 @@ Webhook → Validate Request → Determine Route → Request Discord Confirmatio
     ↓
 [User confirms in Discord]
     ↓
-Execute Swap (Uniswap or LI.FI) → Notify Result → Log to Sheets
+Execute Swap (Uniswap or LI.FI) → Notify Result → Log to Appwrite
 ```
 
 **Request format**:
@@ -114,7 +118,7 @@ Execute Swap (Uniswap or LI.FI) → Notify Result → Log to Sheets
 ### Weekly Summary
 
 ```
-Trigger (Monday 8am) → Read Sheets History → Calculate Stats → Format Report → Discord + Email
+Trigger (Monday 8am) → Read Appwrite History → Calculate Stats → Format Report → Discord
 ```
 
 **Outputs**:
