@@ -40,10 +40,10 @@ pnpm install
 Create `.env.local`:
 
 ```bash
-VITE_APPWRITE_ENDPOINT=https://your-appwrite-instance.com/v1
-VITE_APPWRITE_PROJECT_ID=your_project_id
-VITE_N8N_WEBHOOK_BASE=https://your-n8n-instance.com/webhook
-VITE_GOOGLE_SHEET_ID=your_sheet_id
+VITE_APPWRITE_ENDPOINT=https://your-appwrite.hostinger.com/v1
+VITE_APPWRITE_PROJECT_ID=treasury-ops
+VITE_APPWRITE_DATABASE_ID=treasury
+VITE_N8N_WEBHOOK_BASE=https://your-n8n.hostinger.com/webhook
 ```
 
 ### Development
@@ -145,7 +145,7 @@ Configuration:
 
 ### Fetching Balances
 
-The dashboard fetches data from Google Sheets (populated by n8n) or directly from n8n webhooks:
+The dashboard fetches data from Appwrite (populated by n8n) or directly from n8n webhooks:
 
 ```typescript
 // Trigger balance refresh via n8n
