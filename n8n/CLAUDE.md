@@ -15,14 +15,40 @@ docker-compose up -d n8n
 
 Access at: `https://your-n8n.hostinger.com`
 
-## Workflows
+## Workflows (Implemented)
 
-| Workflow | Trigger | Purpose |
-|----------|---------|---------|
-| `daily-report.json` | Cron 9:00 AM | Balance + price summary to Discord |
-| `price-monitor.json` | Interval 5 min | Threshold alerts, log to Appwrite |
-| `swap-executor.json` | Webhook | Execute swaps with Discord confirmation |
-| `weekly-summary.json` | Cron Mon 8:00 AM | Performance analytics |
+| Workflow | Trigger | Nodes | Purpose |
+|----------|---------|-------|---------|
+| `daily-report.json` | Cron 9:00 AM | 6 | Fetch Circle balance + Uniswap price → Format → Discord + Appwrite |
+| `price-monitor.json` | Interval 5 min | 7 | Fetch price → Check thresholds → Alert if triggered → Save to Appwrite |
+| `swap-executor.json` | Webhook | 12 | Validate → Create record → Notify Discord → Confirm webhook → Execute |
+| `weekly-summary.json` | Cron Mon 8:00 AM | 5 | Query Appwrite history → Calculate stats → Discord summary |
+
+### Swap Executor Flow
+
+The swap executor uses two webhooks:
+1. `POST /webhook/swap-executor` - Creates pending execution, notifies Discord
+2. `POST /webhook/swap-confirm` - Confirms or cancels, executes swap
+
+Request body for swap:
+```json
+{
+  "sourceChain": "arbitrum",
+  "destChain": "base",
+  "sourceToken": "USDC",
+  "destToken": "ETH",
+  "amount": "100",
+  "reason": "Rebalancing for gas"
+}
+```
+
+Request body for confirm:
+```json
+{
+  "executionId": "abc123",
+  "action": "confirm"  // or "cancel"
+}
+```
 
 ## Environment Variables
 

@@ -14,7 +14,7 @@ Hostinger VPS
 
 External Services
 ├── Circle Arc - Chain-abstracted USDC, cross-chain transfers
-├── Uniswap v4 - Same-chain swaps, price data via subgraph
+├── Uniswap v3 - Same-chain swaps, price data via subgraph
 ├── LI.FI - Cross-chain swaps, multi-step DeFi via Composer
 └── Discord - Notifications + human-in-the-loop confirmations
 ```
@@ -23,32 +23,61 @@ External Services
 
 ```
 treasury-agent/
-├── n8n/           # Workflow JSON exports and n8n documentation
-├── dashboard/     # React + Vite + Tailwind dashboard
-├── functions/     # Appwrite serverless functions (if needed)
-├── docs/          # Detailed documentation and proposals
-└── .env.example   # Environment variables template
+├── dashboard/              # React + Vite + Tailwind dashboard
+│   ├── src/
+│   │   ├── components/     # UI components (Button, Card, Layout)
+│   │   ├── pages/          # Dashboard, Analytics, History, Settings
+│   │   ├── lib/            # Appwrite client, API helpers, utils
+│   │   └── types/          # TypeScript interfaces
+│   └── package.json
+├── n8n/
+│   ├── workflows/          # Importable workflow JSON files
+│   │   ├── daily-report.json
+│   │   ├── price-monitor.json
+│   │   ├── swap-executor.json
+│   │   └── weekly-summary.json
+│   ├── CLAUDE.md
+│   └── README.md
+├── docs/
+│   ├── proposal.md                 # Hackathon proposal
+│   ├── threshold-approval-flow.md  # Approval logic decisions
+│   ├── appwrite-schema.json        # Database schema definition
+│   ├── appwrite-setup.md           # Collection setup guide
+│   └── setup-guide.md              # Credentials & configuration
+├── functions/              # Appwrite serverless functions (if needed)
+├── docker-compose.yml      # Local n8n development
+├── .env.example            # Environment variables template
+└── CLAUDE.md               # This file
 ```
 
 ## Key Commands
 
 ```bash
 # Dashboard development
-pnpm dashboard:dev      # Start dashboard dev server
-pnpm dashboard:build    # Build for production
-pnpm dashboard:install  # Install dashboard dependencies
+cd dashboard
+pnpm install
+pnpm dev              # http://localhost:5173
+pnpm build            # Output to dist/
 
-# Workflows
-pnpm workflows:export   # Export from n8n UI to n8n/workflows/
-pnpm workflows:import   # Import to n8n from n8n/workflows/
+# Local n8n (requires Docker)
+docker-compose up -d  # Start n8n at http://localhost:5678
+
+# From root
+pnpm dashboard:dev    # Shortcut for dashboard dev
 ```
 
 ## Data Storage
 
 **Primary**: Appwrite Database (hosted on Hostinger)
-- `price_history` - Price snapshots from monitoring
-- `executions` - Swap/rebalance transaction records
-- `alerts` - Alert history and acknowledgments
+
+| Collection | Purpose | Key Fields |
+|------------|---------|------------|
+| `price_history` | Price snapshots from monitoring | timestamp, token, price_usd, source |
+| `executions` | Swap/rebalance transaction records | type, status, tx_hash, amount, chains |
+| `alerts` | Alert history and acknowledgments | type, severity, message, acknowledged |
+| `balances` | Treasury balance snapshots | chain, token, balance, balance_usd |
+
+See `docs/appwrite-schema.json` for full schema with indexes.
 
 **No Google Sheets** - All data persisted in Appwrite for easier querying and export.
 
@@ -105,11 +134,30 @@ For hackathon demo, focus on:
 
 Use testnet USDC from Circle faucet.
 
+## Implemented Workflows
+
+| Workflow | File | Trigger | What It Does |
+|----------|------|---------|--------------|
+| Daily Report | `daily-report.json` | Cron 9 AM | Circle balance + Uniswap price → Discord |
+| Price Monitor | `price-monitor.json` | Every 5 min | Check thresholds → alert + save to Appwrite |
+| Swap Executor | `swap-executor.json` | Webhook | Create pending swap → confirm via `/swap-confirm` |
+| Weekly Summary | `weekly-summary.json` | Monday 8 AM | Aggregate stats → Discord summary |
+
+## Dashboard Pages
+
+| Page | Route | Purpose |
+|------|-------|---------|
+| Dashboard | `/` | Balance overview, chain breakdown, quick actions |
+| Analytics | `/analytics` | Price charts, volume charts, weekly stats |
+| History | `/history` | Execution log with status badges, tx links |
+| Settings | `/settings` | Connection status, config display, quick links |
+
 ## Code Patterns
 
 - **n8n**: Use environment variables via `{{$env.VAR_NAME}}`
 - **Dashboard**: TanStack Query for data fetching, Appwrite SDK for auth
 - **Styling**: Tailwind + shadcn/ui components
+- **Types**: Shared interfaces in `dashboard/src/types/index.ts`
 
 ## Files to Never Commit
 
@@ -118,3 +166,11 @@ The `.gitignore` protects these, but be aware:
 - `*credentials*.json`
 - `*.pem`, `*.key`
 - `.n8n/` (contains credentials)
+
+## Getting Started
+
+See `docs/setup-guide.md` for complete setup instructions including:
+- Required API keys and where to get them
+- Appwrite database setup
+- n8n workflow import
+- Dashboard configuration

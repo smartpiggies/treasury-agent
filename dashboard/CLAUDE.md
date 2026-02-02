@@ -60,9 +60,18 @@ The dashboard reads/writes to these Appwrite collections:
   source_token: string;
   dest_token: string;
   amount: string;
-  status: "pending" | "confirmed" | "failed";
+  amount_usd?: number;
+  status: "pending" | "awaiting_confirmation" | "confirmed" | "executing" | "completed" | "failed" | "cancelled";
   tx_hash?: string;
+  route?: "uniswap" | "lifi" | "circle";
+  requester?: string;
+  approver?: string;
+  approved_at?: string;
+  completed_at?: string;
   error?: string;
+  gas_used?: string;
+  slippage?: number;
+  reason?: string;
 }
 ```
 
@@ -71,36 +80,58 @@ The dashboard reads/writes to these Appwrite collections:
 {
   $id: string;
   timestamp: string;
-  type: "price_high" | "price_low" | "execution_failed";
+  type: "price_high" | "price_low" | "execution_failed" | "limit_reached" | "system_error";
+  severity: "info" | "warning" | "critical";
   message: string;
+  token?: string;
+  threshold?: number;
+  actual_value?: number;
   acknowledged: boolean;
+  acknowledged_by?: string;
+  acknowledged_at?: string;
+  related_execution?: string;
 }
 ```
 
-## Project Structure
+### `balances`
+```typescript
+{
+  $id: string;
+  timestamp: string;
+  chain: string;
+  token: string;
+  balance: string;
+  balance_usd?: number;
+  source: string;
+}
+```
+
+## Project Structure (Implemented)
 
 ```
 src/
 ├── components/
-│   ├── ui/              # shadcn/ui primitives (Button, Card, etc.)
-│   ├── layout/          # Header, Sidebar, PageWrapper
-│   ├── dashboard/       # BalanceCard, PriceChart, AlertFeed
-│   └── controls/        # SwapForm, RebalanceButton
+│   ├── ui/
+│   │   ├── button.tsx      # Button with variants (shadcn/ui style)
+│   │   ├── card.tsx        # Card, CardHeader, CardTitle, etc.
+│   │   └── toaster.tsx     # Toast notifications
+│   └── layout/
+│       └── Layout.tsx      # Header with nav, main content wrapper
 ├── lib/
-│   ├── appwrite.ts      # Appwrite client singleton
-│   ├── api.ts           # n8n webhook helpers
-│   └── utils.ts         # cn(), formatters
-├── hooks/
-│   ├── useAuth.ts       # Appwrite auth state
-│   ├── useBalance.ts    # Fetch treasury balance
-│   └── usePriceHistory.ts
+│   ├── appwrite.ts         # Appwrite client, DATABASE_ID, COLLECTIONS
+│   ├── api.ts              # triggerDailyReport, requestSwap, getBalance
+│   └── utils.ts            # cn(), formatCurrency, shortenAddress, getExplorerUrl
+├── types/
+│   └── index.ts            # Chain, Token, Execution, Alert, SwapRequest, etc.
 ├── pages/
-│   ├── Dashboard.tsx
-│   ├── Analytics.tsx
-│   ├── History.tsx
-│   └── Settings.tsx
-├── App.tsx              # Router setup
-└── main.tsx             # Entry point
+│   ├── Dashboard.tsx       # Stats grid, chain breakdown, quick actions
+│   ├── Analytics.tsx       # Recharts line charts for price/volume
+│   ├── History.tsx         # Execution list with StatusBadge component
+│   └── Settings.tsx        # Connection status, env display
+├── App.tsx                 # BrowserRouter with routes
+├── main.tsx                # QueryClientProvider + React root
+├── index.css               # Tailwind + CSS variables for theming
+└── vite-env.d.ts           # Environment variable types
 ```
 
 ## Code Patterns
