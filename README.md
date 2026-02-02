@@ -1,0 +1,114 @@
+# Treasury Ops Bot
+
+> Autonomous DeFi treasury agent powered by n8n, Circle Gateway & LI.FI
+
+**EthGlobal HackMoney 2026**
+
+Treasury Ops Bot is an autonomous treasury management agent built on n8n workflow automation. It implements a classic agent loop—Monitor, Decide, Execute, Report—to automate the operational burden of multi-chain DeFi treasury management. The bot monitors positions via Uniswap v4 subgraph data, tracks unified USDC balances across 11 chains using Circle Gateway (<500ms cross-chain transfers), and executes swaps and rebalancing operations through a dual-path architecture: Uniswap for same-chain swaps, LI.FI for cross-chain operations and multi-step DeFi via Composer. Automated reports and alerts are delivered to Discord/Slack, with all activity logged for audit.
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        TREASURY OPS BOT                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────┐ │
+│  │    n8n      │    │  Dashboard  │    │      Discord        │ │
+│  │  Workflows  │◄──►│   (React)   │    │   Confirmations     │ │
+│  │             │    │             │    │                     │ │
+│  │ • Monitor   │    │ • Analytics │    │ • Tx approval flow  │ │
+│  │ • Decide    │    │ • Controls  │    │ • Alerts            │ │
+│  │ • Execute   │    │ • Reports   │    │ • Reports           │ │
+│  │ • Report    │    │             │    │                     │ │
+│  └──────┬──────┘    └──────┬──────┘    └─────────────────────┘ │
+│         │                  │                                    │
+│         ▼                  ▼                                    │
+│  ┌─────────────────────────────────────┐                        │
+│  │            Data Layer               │                        │
+│  │  • Google Sheets (logs, history)    │                        │
+│  │  • Appwrite (auth, optional DB)     │                        │
+│  └─────────────────────────────────────┘                        │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │                    External APIs                             ││
+│  │  • Circle Gateway (chain-abstracted USDC)                    ││
+│  │  • LI.FI (cross-chain swaps, Composer)                       ││
+│  │  • Uniswap v4 (same-chain swaps, price data)                 ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Repository Structure
+
+```
+treasury-agent/
+├── docs/
+│   └── proposal.md           # Full hackathon proposal
+│
+├── n8n/
+│   ├── workflows/            # Exported n8n workflow JSON files
+│   └── README.md             # n8n setup and import instructions
+│
+├── dashboard/                # React dashboard app
+│   ├── src/
+│   └── README.md
+│
+├── functions/                # Appwrite serverless functions (if needed)
+│
+├── .env.example              # Environment variables template
+└── README.md                 # This file
+```
+
+## Workflows
+
+| Workflow | Trigger | Description |
+|----------|---------|-------------|
+| **Daily Report** | Cron (9am) | Aggregates balances, prices, generates report to Discord |
+| **Price Monitor** | Interval (5min) | Watches thresholds, alerts on significant moves |
+| **Swap Executor** | Webhook + Discord | Executes swaps with human confirmation via Discord |
+| **Weekly Summary** | Cron (Monday 8am) | Performance analytics and trend summary |
+
+## Tech Stack
+
+- **Orchestration**: n8n (self-hosted)
+- **Dashboard**: React + Vite + Tailwind + shadcn/ui
+- **Auth**: Appwrite
+- **Data**: Google Sheets
+- **Notifications**: Discord webhooks + interactive buttons
+
+## Partner Integrations
+
+| Partner | Integration | Prize Target |
+|---------|-------------|--------------|
+| **Circle** | Gateway API for unified USDC balance | Chain Abstracted USDC Apps, Treasury Systems |
+| **LI.FI** | Cross-chain swaps + Composer | AI × LI.FI Smart App |
+| **Uniswap** | v4 subgraph + direct swaps | Agentic Finance |
+
+## Quick Start
+
+### Prerequisites
+
+- Docker with n8n running
+- Appwrite instance
+- Discord server with webhook
+- API keys: Circle, LI.FI (optional), Google Sheets
+
+### Setup
+
+1. Clone the repo
+2. Copy `.env.example` to `.env` and fill in credentials
+3. Import n8n workflows from `n8n/workflows/`
+4. Deploy dashboard to Appwrite
+5. Configure Discord webhooks
+
+See [docs/proposal.md](docs/proposal.md) for detailed setup and learning plan.
+
+## Team
+
+Built for EthGlobal HackMoney 2026.
+
+## License
+
+MIT

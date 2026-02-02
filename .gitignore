@@ -24,6 +24,7 @@ logs/
 # Build outputs
 dist/
 build/
+dashboard/dist/
 
 # Credentials (never commit these!)
 *credentials*.json
@@ -33,3 +34,13 @@ build/
 
 # Claude Code local settings
 .claude/
+
+# Package manager locks (keep pnpm-lock if using pnpm)
+package-lock.json
+yarn.lock
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Vite
+dashboard/.vite/
