@@ -37,16 +37,23 @@ treasury-agent/
 
 ```bash
 # Dashboard development
-pnpm dashboard:dev      # Start dashboard dev server
-pnpm dashboard:build    # Build for production
-pnpm dashboard:install  # Install dashboard dependencies
+npm run dashboard:dev      # Start dashboard dev server
+npm run dashboard:build    # Build for production
+npm run dashboard:install  # Install dashboard dependencies
 
 # Workflows
-pnpm workflows:export   # Export from n8n UI to n8n/workflows/
-pnpm workflows:import   # Import to n8n from n8n/workflows/
+npm run workflows:export   # Export from n8n UI to n8n/workflows/
+npm run workflows:import   # Import to n8n from n8n/workflows/
 
 # Database setup
 bash scripts/setup-appwrite-db.sh  # Create Appwrite database schema
+
+# Integration tests (run from root, requires .env.local)
+npm run test:all        # Run all integration tests
+npm run test:discord    # Test Discord webhooks
+npm run test:appwrite   # Test Appwrite database CRUD
+npm run test:rpc        # Test RPC endpoints (Infura testnets)
+npm run test:lifi       # Test LI.FI API connectivity
 ```
 
 ## Data Storage
@@ -62,6 +69,15 @@ bash scripts/setup-appwrite-db.sh  # Create Appwrite database schema
 See `docs/appwrite-setup.md` for full documentation.
 
 **No Google Sheets** - All data persisted in Appwrite for easier querying and export.
+
+### Appwrite Enum Constraints
+
+When writing to collections, use these allowed values:
+
+**executions.type**: `swap`, `rebalance`, `transfer`
+**executions.status**: `pending`, `approved`, `executing`, `completed`, `failed`
+**alerts.type**: `price_high`, `price_low`, `execution_failed`, `limit_reached`, `system_error`
+**alerts.severity**: `info`, `warning`, `critical`
 
 ## Wallet Strategy
 
@@ -122,10 +138,28 @@ Use testnet USDC from Circle faucet.
 - **Dashboard**: TanStack Query for data fetching, Appwrite SDK for auth
 - **Styling**: Tailwind + shadcn/ui components
 
+## Current Integration Status (Feb 2026)
+
+| Service | Status | Notes |
+|---------|--------|-------|
+| Appwrite | ✅ Working | All 4 collections tested |
+| Discord | ✅ Working | Both webhooks configured |
+| RPC (Infura) | ✅ Working | Sepolia, Arb Sepolia, Base Sepolia, Polygon Amoy |
+| LI.FI | ✅ Working | API key + integrator ID configured |
+| Circle | ⚠️ Blocked | Login issues during hackathon - use LI.FI for balance queries |
+| n8n | ✅ Instance running | https://n8n.smartpiggies.cloud - workflows imported |
+
+## Live URLs
+
+- **n8n**: https://n8n.smartpiggies.cloud
+- **Appwrite Console**: https://aw.smartpiggies.cloud/console
+- **Dashboard**: https://treasury-agent.sites.smartpiggies.cloud
+
 ## Files to Never Commit
 
 The `.gitignore` protects these, but be aware:
 - `.env` files (use `.env.example` as template)
+- `dot-env*` files (env file transfers)
 - `*credentials*.json`
 - `*.pem`, `*.key`
 - `.n8n/` (contains credentials)

@@ -2,13 +2,23 @@
   "name": "treasury-agent",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Autonomous DeFi treasury agent powered by n8n, Circle Gateway & LI.FI",
   "scripts": {
     "dashboard:dev": "cd dashboard && pnpm dev",
     "dashboard:build": "cd dashboard && pnpm build",
     "dashboard:install": "cd dashboard && pnpm install",
     "workflows:export": "echo 'Export workflows from n8n UI to n8n/workflows/'",
-    "workflows:import": "echo 'Import workflows to n8n from n8n/workflows/'"
+    "workflows:import": "echo 'Import workflows to n8n from n8n/workflows/'",
+    "test:discord": "node scripts/test-discord.js",
+    "test:appwrite": "node scripts/test-appwrite.js",
+    "test:rpc": "node scripts/test-rpc.js",
+    "test:lifi": "node scripts/test-lifi.js",
+    "test:all": "node scripts/test-discord.js && node scripts/test-appwrite.js && node scripts/test-rpc.js && node scripts/test-lifi.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "node-appwrite": "^14.0.0"
   },
   "keywords": [
     "defi",
