@@ -34,6 +34,7 @@ dashboard/dist/
 
 # Claude Code local settings
 .claude/
+CLAUDE.local.md
 
 # Package manager locks (keep pnpm-lock if using pnpm)
 package-lock.json

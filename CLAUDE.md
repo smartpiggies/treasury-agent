@@ -8,9 +8,11 @@ This is a **hackathon POC** for an autonomous DeFi treasury management agent. Th
 
 ```
 Hostinger VPS
-├── n8n (self-hosted) - Workflow orchestration
-├── Appwrite - Auth + Database + Dashboard hosting
-└── MCP Server (if needed)
+├── n8n (self-hosted) - https://n8n.smartpiggies.cloud
+├── Appwrite - https://aw.smartpiggies.cloud
+│   ├── Auth + Database
+│   └── Dashboard hosting (Sites)
+└── Dashboard - https://treasury-agent.sites.smartpiggies.cloud
 
 External Services
 ├── Circle Arc - Chain-abstracted USDC, cross-chain transfers
@@ -25,6 +27,7 @@ External Services
 treasury-agent/
 ├── n8n/           # Workflow JSON exports and n8n documentation
 ├── dashboard/     # React + Vite + Tailwind dashboard
+├── scripts/       # Setup and utility scripts
 ├── functions/     # Appwrite serverless functions (if needed)
 ├── docs/          # Detailed documentation and proposals
 └── .env.example   # Environment variables template
@@ -41,14 +44,22 @@ pnpm dashboard:install  # Install dashboard dependencies
 # Workflows
 pnpm workflows:export   # Export from n8n UI to n8n/workflows/
 pnpm workflows:import   # Import to n8n from n8n/workflows/
+
+# Database setup
+bash scripts/setup-appwrite-db.sh  # Create Appwrite database schema
 ```
 
 ## Data Storage
 
 **Primary**: Appwrite Database (hosted on Hostinger)
+- Database ID: `treasury`
 - `price_history` - Price snapshots from monitoring
 - `executions` - Swap/rebalance transaction records
 - `alerts` - Alert history and acknowledgments
+- `balances` - Treasury balance snapshots across chains
+
+**Setup**: Run `bash scripts/setup-appwrite-db.sh` to create the database schema.
+See `docs/appwrite-setup.md` for full documentation.
 
 **No Google Sheets** - All data persisted in Appwrite for easier querying and export.
 

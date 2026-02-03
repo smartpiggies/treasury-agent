@@ -30,6 +30,7 @@ Treasury Ops Bot is an autonomous treasury management agent built on n8n workflo
 │  │    - price_history collection       │                        │
 │  │    - executions collection          │                        │
 │  │    - alerts collection              │                        │
+│  │    - balances collection            │                        │
 │  └─────────────────────────────────────┘                        │
 │                                                                 │
 │  ┌─────────────────────────────────────────────────────────────┐│
@@ -47,7 +48,8 @@ Treasury Ops Bot is an autonomous treasury management agent built on n8n workflo
 ```
 treasury-agent/
 ├── docs/
-│   └── proposal.md           # Full hackathon proposal
+│   ├── proposal.md           # Full hackathon proposal
+│   └── appwrite-setup.md     # Database setup documentation
 │
 ├── n8n/
 │   ├── workflows/            # Exported n8n workflow JSON files
@@ -56,6 +58,9 @@ treasury-agent/
 ├── dashboard/                # React dashboard app
 │   ├── src/
 │   └── README.md
+│
+├── scripts/
+│   └── setup-appwrite-db.sh  # Database setup script
 │
 ├── functions/                # Appwrite serverless functions (if needed)
 │
@@ -102,11 +107,12 @@ treasury-agent/
 
 1. Clone the repo
 2. Copy `.env.example` to `.env` and fill in credentials
-3. Import n8n workflows from `n8n/workflows/`
-4. Deploy dashboard to Appwrite
-5. Configure Discord webhooks
+3. Set up Appwrite database: `bash scripts/setup-appwrite-db.sh`
+4. Import n8n workflows from `n8n/workflows/`
+5. Deploy dashboard to Appwrite Sites
+6. Configure Discord webhooks
 
-See [docs/proposal.md](docs/proposal.md) for detailed setup and learning plan.
+See [docs/appwrite-setup.md](docs/appwrite-setup.md) for database details and [docs/proposal.md](docs/proposal.md) for the full architecture.
 
 ## Team
 
