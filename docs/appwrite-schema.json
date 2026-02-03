@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Treasury Ops Bot - Appwrite Database Schema",
-  "description": "Database collections for the Treasury Ops Bot. Create these in your Appwrite console or via CLI.",
+  "description": "Database collections for the Treasury Ops Bot. Create using scripts/setup-appwrite-db.sh. Note: Appwrite does not allow default values on required columns - fields with defaults are created as optional.",
   "database": {
     "id": "treasury",
     "name": "Treasury Database"
