@@ -60,7 +60,11 @@ treasury-agent/
 │   └── README.md
 │
 ├── scripts/
-│   └── setup-appwrite-db.sh  # Database setup script
+│   ├── setup-appwrite-db.sh  # Database setup script
+│   ├── test-discord.js       # Discord webhook test
+│   ├── test-appwrite.js      # Appwrite CRUD test
+│   ├── test-rpc.js           # RPC endpoint test
+│   └── test-lifi.js          # LI.FI API test
 │
 ├── functions/                # Appwrite serverless functions (if needed)
 │
@@ -106,11 +110,13 @@ treasury-agent/
 ### Setup
 
 1. Clone the repo
-2. Copy `.env.example` to `.env` and fill in credentials
-3. Set up Appwrite database: `bash scripts/setup-appwrite-db.sh`
-4. Import n8n workflows from `n8n/workflows/`
-5. Deploy dashboard to Appwrite Sites
-6. Configure Discord webhooks
+2. Copy `.env.example` to `.env.local` and fill in credentials
+3. Install dependencies: `npm install`
+4. Verify integrations: `npm run test:all`
+5. Set up Appwrite database: `bash scripts/setup-appwrite-db.sh`
+6. Import n8n workflows from `n8n/workflows/`
+7. Deploy dashboard to Appwrite Sites
+8. Configure Discord webhooks
 
 See [docs/appwrite-setup.md](docs/appwrite-setup.md) for database details and [docs/proposal.md](docs/proposal.md) for the full architecture.
 
