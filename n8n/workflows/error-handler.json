@@ -1,0 +1,78 @@
+{
+  "name": "Error Handler",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "error-trigger",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Format error information for logging and notification\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const errorData = item.json;\n\n  // Extract error details with safe access\n  const workflowName = errorData.workflow?.name || 'Unknown Workflow';\n  const workflowId = errorData.workflow?.id || 'unknown';\n  const executionId = errorData.execution?.id || 'unknown';\n  const nodeName = errorData.execution?.error?.node?.name || 'Unknown Node';\n  const errorMessage = errorData.execution?.error?.message || 'No error message';\n  const errorStack = errorData.execution?.error?.stack || '';\n  const timestamp = new Date().toISOString();\n\n  // Determine severity based on workflow type\n  let severity = 'warning';\n  let color = 16776960; // Yellow\n\n  if (workflowName.toLowerCase().includes('swap') || workflowName.toLowerCase().includes('executor')) {\n    severity = 'critical';\n    color = 15158332; // Red\n  } else if (workflowName.toLowerCase().includes('price') || workflowName.toLowerCase().includes('monitor')) {\n    severity = 'warning';\n    color = 16776960; // Yellow\n  } else if (workflowName.toLowerCase().includes('report') || workflowName.toLowerCase().includes('summary')) {\n    severity = 'info';\n    color = 3447003; // Blue\n  }\n\n  // Truncate stack trace for Discord embed (max 1024 chars for field value)\n  const truncatedStack = errorStack.length > 500 \n    ? errorStack.substring(0, 500) + '...' \n    : errorStack || 'No stack trace available';\n\n  results.push({\n    json: {\n      workflowName,\n      workflowId,\n      executionId,\n      nodeName,\n      errorMessage,\n      errorStack: truncatedStack,\n      severity,\n      color,\n      timestamp,\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "format-error",
+      "name": "Format Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DISCORD_WEBHOOK_ALERTS }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"embeds\": [{\n    \"title\": \"Workflow Error\",\n    \"description\": \"An error occurred in **{{ $json.workflowName }}**\",\n    \"color\": {{ $json.color }},\n    \"fields\": [\n      {\n        \"name\": \"Severity\",\n        \"value\": \"{{ $json.severity.toUpperCase() }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Failed Node\",\n        \"value\": \"{{ $json.nodeName }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Execution ID\",\n        \"value\": \"`{{ $json.executionId }}`\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Error Message\",\n        \"value\": \"```{{ $json.errorMessage }}```\"\n      },\n      {\n        \"name\": \"Stack Trace\",\n        \"value\": \"```{{ $json.errorStack }}```\"\n      }\n    ],\n    \"footer\": {\n      \"text\": \"Treasury Ops Bot - Error Handler\"\n    },\n    \"timestamp\": \"{{ $json.timestamp }}\"\n  }]\n}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "discord-alert",
+      "name": "Send to Discord",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [440, -100],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Save error to Appwrite alerts collection\nconst items = $input.all();\nconst results = [];\n\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nif (!endpoint || !apiKey) {\n  return [{ json: { saved: false, reason: 'Appwrite not configured' } }];\n}\n\nfor (const item of items) {\n  const data = item.json;\n  \n  try {\n    const response = await fetch(\n      `${endpoint}/databases/${databaseId}/collections/alerts/documents`,\n      {\n        method: 'POST',\n        headers: {\n          'Content-Type': 'application/json',\n          'X-Appwrite-Project': projectId,\n          'X-Appwrite-Key': apiKey,\n        },\n        body: JSON.stringify({\n          documentId: 'unique()',\n          data: {\n            timestamp: data.timestamp,\n            type: 'workflow_error',\n            severity: data.severity,\n            message: `${data.workflowName}: ${data.errorMessage}`,\n            token: '',\n            threshold: 0,\n            actual_value: 0,\n            acknowledged: false,\n          },\n        }),\n      }\n    );\n\n    if (!response.ok) {\n      const errorText = await response.text();\n      results.push({ json: { saved: false, reason: errorText } });\n    } else {\n      results.push({ json: { saved: true } });\n    }\n  } catch (error) {\n    results.push({ json: { saved: false, reason: error.message } });\n  }\n}\n\nreturn results;"
+      },
+      "id": "save-appwrite",
+      "name": "Save to Appwrite",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 100]
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [{ "node": "Format Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "Format Error": {
+      "main": [
+        [
+          { "node": "Send to Discord", "type": "main", "index": 0 },
+          { "node": "Save to Appwrite", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "pinData": {}
+}

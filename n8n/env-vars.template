@@ -1,0 +1,79 @@
+# Treasury Ops Bot - n8n Environment Variables
+# Copy these to docker-compose.yml under both 'n8n:' and 'n8n-worker:' services
+# Format: - VARIABLE_NAME=value
+
+# ===========================================
+# EXECUTION MODE
+# ===========================================
+# 'mock' = simulate swaps (get real quotes, fake tx hash)
+# 'live' = real mainnet transactions (costs real money!)
+- EXECUTION_MODE=mock
+
+# ===========================================
+# THE GRAPH (Decentralized Network)
+# ===========================================
+# Get API key from: https://thegraph.com/studio/
+- GRAPH_API_KEY=your_graph_api_key_here
+
+# Mainnet subgraph IDs (pre-configured, don't change unless needed)
+- GRAPH_SUBGRAPH_BASE=FQ6JYszEKApsBpAmiHesRsd9Ygc6mzmpNRANeVQFYoVX
+- GRAPH_SUBGRAPH_ARBITRUM=FbCGRftH4a3yZugY7TnbYgPJVEv2LvMT6oF1fxPe9aJM
+
+# ===========================================
+# CIRCLE GATEWAY
+# ===========================================
+# Get API key from: https://console.circle.com/
+- CIRCLE_API_KEY=your_circle_api_key_here
+- CIRCLE_TREASURY_ADDRESS=0xYourTreasuryAddressHere
+
+# Use testnet for development, mainnet for production
+# Testnet: https://gateway-api-testnet.circle.com
+# Mainnet: https://gateway-api.circle.com
+- CIRCLE_GATEWAY_URL=https://gateway-api.circle.com
+
+# ===========================================
+# LI.FI
+# ===========================================
+# Register at: https://li.fi/ (optional, default works for testing)
+- LIFI_INTEGRATOR_ID=treasury-ops-bot
+
+# ===========================================
+# APPWRITE
+# ===========================================
+# Your Appwrite instance details
+- APPWRITE_ENDPOINT=https://aw.smartpiggies.cloud/v1
+- APPWRITE_PROJECT_ID=treasury-agent-1
+- APPWRITE_API_KEY=your_appwrite_api_key_here
+- APPWRITE_DATABASE_ID=treasury
+
+# ===========================================
+# DISCORD WEBHOOKS
+# ===========================================
+# Create webhooks in Discord: Server Settings > Integrations > Webhooks
+# Reports: daily/weekly summaries (can be same channel or different)
+# Alerts: price alerts and error notifications
+- DISCORD_WEBHOOK_REPORTS=https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN
+- DISCORD_WEBHOOK_ALERTS=https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN
+
+# ===========================================
+# PRICE ALERT THRESHOLDS
+# ===========================================
+# ETH price thresholds for alerts (USD)
+- PRICE_ALERT_HIGH=4000
+- PRICE_ALERT_LOW=2500
+
+# ===========================================
+# WALLET (For Live Mode Only)
+# ===========================================
+# IMPORTANT: Use a DEDICATED demo wallet, NOT your main wallet!
+# Generate fresh wallet: node -e "console.log(require('ethers').Wallet.createRandom().privateKey)"
+- TREASURY_ADDRESS=0xYourDemoWalletAddressHere
+- TREASURY_PRIVATE_KEY=0xYourPrivateKeyHere
+
+# ===========================================
+# RPC ENDPOINTS (For Live Mode Only)
+# ===========================================
+# Public RPCs (rate limited) - replace with Alchemy/Infura for production
+- RPC_BASE=https://mainnet.base.org
+- RPC_ARBITRUM=https://arb1.arbitrum.io/rpc
+- RPC_OPTIMISM=https://mainnet.optimism.io

@@ -13,11 +13,13 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [0, 0],
-      "webhookId": "swap-executor"
+      "webhookId": "swap-executor",
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "// Validate swap request\nconst body = $input.first().json.body;\n\nconst required = ['sourceChain', 'destChain', 'sourceToken', 'destToken', 'amount'];\nconst missing = required.filter(f => !body[f]);\n\nif (missing.length > 0) {\n  throw new Error(`Missing required fields: ${missing.join(', ')}`);\n}\n\nconst amount = parseFloat(body.amount);\nif (isNaN(amount) || amount <= 0) {\n  throw new Error('Invalid amount');\n}\n\n// Determine route: same-chain = Uniswap, cross-chain = LI.FI\nconst isCrossChain = body.sourceChain !== body.destChain;\nconst route = isCrossChain ? 'lifi' : 'uniswap';\n\nreturn {\n  ...body,\n  amount,\n  route,\n  isCrossChain,\n  timestamp: new Date().toISOString(),\n};"
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Validate swap request and determine routing\nconst items = $input.all();\nconst body = items[0]?.json?.body || {};\n\nconst required = ['sourceChain', 'destChain', 'sourceToken', 'destToken', 'amount'];\nconst missing = required.filter(f => !body[f]);\n\nif (missing.length > 0) {\n  throw new Error(`Missing required fields: ${missing.join(', ')}`);\n}\n\nconst amount = parseFloat(body.amount);\nif (isNaN(amount) || amount <= 0) {\n  throw new Error('Invalid amount');\n}\n\n// Normalize chain names\nconst normalizeChain = (chain) => chain.toLowerCase().replace(/[_\\-\\s]/g, '');\nconst sourceChain = normalizeChain(body.sourceChain);\nconst destChain = normalizeChain(body.destChain);\n\n// Chain ID mapping\nconst chainIds = {\n  'base': 8453,\n  'arbitrum': 42161,\n  'optimism': 10,\n  'ethereum': 1,\n  'polygon': 137,\n  // Testnets\n  'basesepolia': 84532,\n  'arbitrumsepolia': 421614,\n  'sepolia': 11155111,\n};\n\nconst sourceChainId = chainIds[sourceChain];\nconst destChainId = chainIds[destChain];\n\nif (!sourceChainId || !destChainId) {\n  throw new Error(`Unknown chain: ${!sourceChainId ? body.sourceChain : body.destChain}`);\n}\n\n// Determine if testnet\nconst isTestnet = [84532, 421614, 11155111].includes(sourceChainId) || \n                  [84532, 421614, 11155111].includes(destChainId);\n\n// Determine routing\nconst isCrossChain = sourceChainId !== destChainId;\nconst isUsdcOnly = body.sourceToken.toUpperCase() === 'USDC' && body.destToken.toUpperCase() === 'USDC';\n\nlet route = 'uniswap'; // Default: same-chain swap\nif (isCrossChain) {\n  if (isUsdcOnly) {\n    route = 'gateway'; // Circle Gateway for USDC-only cross-chain\n  } else {\n    route = 'lifi'; // LI.FI for cross-chain with swap\n  }\n}\n\n// Get execution mode\nconst executionMode = $env.EXECUTION_MODE || 'mock';\n\nreturn [{\n  json: {\n    ...body,\n    amount,\n    sourceChain,\n    destChain,\n    sourceChainId,\n    destChainId,\n    route,\n    isCrossChain,\n    isTestnet,\n    isUsdcOnly,\n    executionMode,\n    timestamp: new Date().toISOString(),\n  }\n}];"
       },
       "id": "validate",
       "name": "Validate Request",
@@ -27,7 +29,8 @@
     },
     {
       "parameters": {
-        "jsCode": "// Create execution record in Appwrite\nconst data = $input.first().json;\n\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nif (!endpoint || !apiKey) {\n  return { ...data, executionId: 'local-' + Date.now() };\n}\n\nconst response = await fetch(\n  `${endpoint}/databases/${databaseId}/collections/executions/documents`,\n  {\n    method: 'POST',\n    headers: {\n      'Content-Type': 'application/json',\n      'X-Appwrite-Project': projectId,\n      'X-Appwrite-Key': apiKey,\n    },\n    body: JSON.stringify({\n      documentId: 'unique()',\n      data: {\n        timestamp: data.timestamp,\n        type: 'swap',\n        source_chain: data.sourceChain,\n        dest_chain: data.destChain,\n        source_token: data.sourceToken,\n        dest_token: data.destToken,\n        amount: data.amount.toString(),\n        status: 'pending',\n        route: data.route,\n        reason: data.reason || '',\n        requester: 'webhook',\n      },\n    }),\n  }\n);\n\nconst result = await response.json();\n\nreturn {\n  ...data,\n  executionId: result.$id,\n};"
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Create execution record in Appwrite\nconst items = $input.all();\nconst data = items[0]?.json || {};\n\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nif (!endpoint || !apiKey) {\n  return [{ json: { ...data, executionId: 'local-' + Date.now() } }];\n}\n\ntry {\n  const response = await fetch(\n    `${endpoint}/databases/${databaseId}/collections/executions/documents`,\n    {\n      method: 'POST',\n      headers: {\n        'Content-Type': 'application/json',\n        'X-Appwrite-Project': projectId,\n        'X-Appwrite-Key': apiKey,\n      },\n      body: JSON.stringify({\n        documentId: 'unique()',\n        data: {\n          timestamp: data.timestamp,\n          type: 'swap',\n          source_chain: data.sourceChain,\n          dest_chain: data.destChain,\n          source_token: data.sourceToken,\n          dest_token: data.destToken,\n          amount: String(data.amount),\n          status: 'pending',\n          route: data.route,\n          reason: data.reason || '',\n          requester: 'webhook',\n          execution_mode: data.executionMode,\n          is_testnet: data.isTestnet,\n        },\n      }),\n    }\n  );\n\n  const result = await response.json();\n\n  return [{\n    json: {\n      ...data,\n      executionId: result.$id || 'local-' + Date.now(),\n    }\n  }];\n} catch (error) {\n  return [{ json: { ...data, executionId: 'local-' + Date.now() } }];\n}"
       },
       "id": "create-execution",
       "name": "Create Execution Record",
@@ -41,18 +44,26 @@
         "url": "={{ $env.DISCORD_WEBHOOK_REPORTS }}",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"embeds\": [{\n    \"title\": \"Swap Request Received\",\n    \"description\": \"A new swap request is pending confirmation.\",\n    \"color\": 3447003,\n    \"fields\": [\n      {\n        \"name\": \"From\",\n        \"value\": \"{{ $json.amount }} {{ $json.sourceToken }} on {{ $json.sourceChain }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"To\",\n        \"value\": \"{{ $json.destToken }} on {{ $json.destChain }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Route\",\n        \"value\": \"{{ $json.route }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Reason\",\n        \"value\": \"{{ $json.reason || 'Not specified' }}\"\n      },\n      {\n        \"name\": \"Execution ID\",\n        \"value\": \"`{{ $json.executionId }}`\"\n      }\n    ],\n    \"footer\": {\n      \"text\": \"Confirm via dashboard to execute\"\n    },\n    \"timestamp\": \"{{ $json.timestamp }}\"\n  }]\n}"
+        "jsonBody": "={\n  \"embeds\": [{\n    \"title\": \"Swap Request Received\",\n    \"description\": \"A new swap request is pending confirmation.\",\n    \"color\": 3447003,\n    \"fields\": [\n      {\n        \"name\": \"From\",\n        \"value\": \"{{ $json.amount }} {{ $json.sourceToken }} on {{ $json.sourceChain }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"To\",\n        \"value\": \"{{ $json.destToken }} on {{ $json.destChain }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Route\",\n        \"value\": \"{{ $json.route }}{{ $json.isCrossChain ? ' (cross-chain)' : ' (same-chain)' }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Mode\",\n        \"value\": \"{{ $json.executionMode.toUpperCase() }}{{ $json.isTestnet ? ' (testnet)' : '' }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Execution ID\",\n        \"value\": \"`{{ $json.executionId }}`\"\n      }\n    ],\n    \"footer\": {\n      \"text\": \"POST /webhook/swap-confirm to execute or cancel\"\n    },\n    \"timestamp\": \"{{ $json.timestamp }}\"\n  }]\n}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
       },
       "id": "notify-discord",
       "name": "Notify Discord",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [660, 0]
+      "typeVersion": 4.4,
+      "position": [660, 0],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\n  \"success\": true,\n  \"executionId\": \"{{ $json.executionId }}\",\n  \"status\": \"pending\",\n  \"message\": \"Swap request created. Confirm via dashboard to execute.\",\n  \"route\": \"{{ $json.route }}\"\n}"
+        "responseBody": "={\n  \"success\": true,\n  \"executionId\": \"{{ $json.executionId }}\",\n  \"status\": \"pending\",\n  \"message\": \"Swap request created. POST to /webhook/swap-confirm to execute.\",\n  \"route\": \"{{ $json.route }}\",\n  \"executionMode\": \"{{ $json.executionMode }}\",\n  \"isTestnet\": {{ $json.isTestnet }}\n}"
       },
       "id": "respond",
       "name": "Respond to Webhook",
@@ -72,11 +83,13 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [0, 300],
-      "webhookId": "swap-confirm"
+      "webhookId": "swap-confirm",
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "// Get execution details and prepare for swap\nconst { executionId, action } = $input.first().json.body;\n\nif (!executionId) {\n  throw new Error('executionId is required');\n}\n\nif (action === 'cancel') {\n  return { executionId, cancelled: true };\n}\n\n// Fetch execution from Appwrite\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nconst response = await fetch(\n  `${endpoint}/databases/${databaseId}/collections/executions/documents/${executionId}`,\n  {\n    headers: {\n      'X-Appwrite-Project': projectId,\n      'X-Appwrite-Key': apiKey,\n    },\n  }\n);\n\nconst execution = await response.json();\n\nreturn {\n  executionId,\n  cancelled: false,\n  execution,\n};"
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Get execution details and prepare for swap\nconst items = $input.all();\nconst body = items[0]?.json?.body || {};\nconst { executionId, action } = body;\n\nif (!executionId) {\n  throw new Error('executionId is required');\n}\n\nif (action === 'cancel') {\n  return [{ json: { executionId, cancelled: true } }];\n}\n\n// Fetch execution from Appwrite\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nif (!endpoint || !apiKey) {\n  throw new Error('Appwrite not configured');\n}\n\nconst response = await fetch(\n  `${endpoint}/databases/${databaseId}/collections/executions/documents/${executionId}`,\n  {\n    headers: {\n      'X-Appwrite-Project': projectId,\n      'X-Appwrite-Key': apiKey,\n    },\n  }\n);\n\nif (!response.ok) {\n  throw new Error(`Execution not found: ${executionId}`);\n}\n\nconst execution = await response.json();\n\nreturn [{\n  json: {\n    executionId,\n    cancelled: false,\n    execution,\n    executionMode: $env.EXECUTION_MODE || 'mock',\n  }\n}];"
       },
       "id": "get-execution",
       "name": "Get Execution Details",
@@ -87,23 +100,36 @@
     {
       "parameters": {
         "conditions": {
-          "boolean": [
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
             {
-              "value1": "={{ $json.cancelled }}",
-              "value2": true
+              "id": "condition-cancelled",
+              "leftValue": "={{ $json.cancelled }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
             }
-          ]
-        }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       },
       "id": "if-cancelled",
       "name": "Cancelled?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
+      "typeVersion": 2.2,
       "position": [440, 300]
     },
     {
       "parameters": {
-        "jsCode": "// Execute swap via LI.FI or Uniswap\nconst data = $input.first().json;\nconst exec = data.execution;\n\nconst route = exec.route;\nlet txHash = null;\nlet error = null;\n\ntry {\n  if (route === 'lifi') {\n    // LI.FI cross-chain swap\n    const quoteParams = new URLSearchParams({\n      fromChain: exec.source_chain.toUpperCase().slice(0, 3),\n      toChain: exec.dest_chain.toUpperCase().slice(0, 3),\n      fromToken: exec.source_token,\n      toToken: exec.dest_token,\n      fromAmount: (parseFloat(exec.amount) * 1e6).toString(), // Assuming 6 decimals for USDC\n      fromAddress: $env.TREASURY_ADDRESS,\n      integrator: $env.LIFI_INTEGRATOR_ID || 'treasury-ops-bot',\n    });\n\n    const quoteResponse = await fetch(`https://li.quest/v1/quote?${quoteParams}`);\n    const quote = await quoteResponse.json();\n\n    if (quote.error) {\n      throw new Error(quote.error.message || 'LI.FI quote failed');\n    }\n\n    // In production, sign and send the transaction\n    // For POC, we'll simulate success\n    txHash = '0x' + 'simulation'.padStart(64, '0');\n  } else {\n    // Uniswap same-chain swap\n    // In production, use Uniswap SDK or direct contract call\n    txHash = '0x' + 'simulation'.padStart(64, '0');\n  }\n} catch (e) {\n  error = e.message;\n}\n\nreturn {\n  executionId: data.executionId,\n  success: !error,\n  txHash,\n  error,\n  route,\n};"
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Execute swap with mock/live mode support\nconst items = $input.all();\nconst data = items[0]?.json || {};\nconst exec = data.execution || {};\nconst executionMode = data.executionMode || 'mock';\n\nconst route = exec.route;\nlet txHash = null;\nlet error = null;\nlet mocked = false;\nlet quote = null;\n\n// Chain ID mapping for LI.FI\nconst chainIds = {\n  'base': 8453,\n  'arbitrum': 42161,\n  'optimism': 10,\n  'ethereum': 1,\n  'polygon': 137,\n};\n\nconst sourceChainId = chainIds[exec.source_chain] || 8453;\nconst destChainId = chainIds[exec.dest_chain] || 8453;\n\n// Token addresses (mainnet)\nconst tokenAddresses = {\n  'USDC': {\n    8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',\n    42161: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',\n    10: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85',\n    1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',\n  },\n  'WETH': {\n    8453: '0x4200000000000000000000000000000000000006',\n    42161: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',\n    10: '0x4200000000000000000000000000000000000006',\n    1: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',\n  },\n};\n\nconst getTokenAddress = (symbol, chainId) => {\n  if (symbol?.toUpperCase() === 'ETH') return '0x0000000000000000000000000000000000000000';\n  return tokenAddresses[symbol?.toUpperCase()]?.[chainId] || symbol;\n};\n\ntry {\n  if (route === 'lifi' || route === 'uniswap') {\n    // Get quote from LI.FI (works for both cross-chain and same-chain)\n    const fromToken = getTokenAddress(exec.source_token, sourceChainId);\n    const toToken = getTokenAddress(exec.dest_token, route === 'lifi' ? destChainId : sourceChainId);\n    const fromAmount = (parseFloat(exec.amount) * (exec.source_token?.toUpperCase() === 'USDC' ? 1e6 : 1e18)).toString();\n\n    const quoteParams = new URLSearchParams({\n      fromChain: sourceChainId.toString(),\n      toChain: (route === 'lifi' ? destChainId : sourceChainId).toString(),\n      fromToken: fromToken,\n      toToken: toToken,\n      fromAmount: fromAmount,\n      fromAddress: $env.TREASURY_ADDRESS || '0x0000000000000000000000000000000000000000',\n      integrator: $env.LIFI_INTEGRATOR_ID || 'treasury-ops-bot',\n    });\n\n    const quoteResponse = await fetch(`https://li.quest/v1/quote?${quoteParams}`);\n    const quoteData = await quoteResponse.json();\n\n    if (quoteData.message || quoteData.error) {\n      throw new Error(quoteData.message || quoteData.error?.message || 'Quote failed');\n    }\n\n    quote = {\n      fromAmount: quoteData.estimate?.fromAmount,\n      toAmount: quoteData.estimate?.toAmount,\n      toAmountMin: quoteData.estimate?.toAmountMin,\n      executionDuration: quoteData.estimate?.executionDuration,\n    };\n\n    if (executionMode === 'mock') {\n      mocked = true;\n      txHash = `0xmock_${route}_${Date.now().toString(16)}_${Math.random().toString(16).slice(2, 10)}`;\n    } else {\n      throw new Error('Live execution requires transaction signing setup. Set EXECUTION_MODE=mock for testing.');\n    }\n\n  } else if (route === 'gateway') {\n    // Circle Gateway USDC transfer\n    if (executionMode === 'mock') {\n      mocked = true;\n      txHash = `0xmock_gateway_${Date.now().toString(16)}_${Math.random().toString(16).slice(2, 10)}`;\n      quote = {\n        fromAmount: exec.amount,\n        toAmount: exec.amount,\n        route: 'circle_gateway',\n      };\n    } else {\n      throw new Error('Live Circle Gateway execution requires EIP-712 signing setup. Set EXECUTION_MODE=mock for testing.');\n    }\n  } else {\n    throw new Error(`Unknown route: ${route}`);\n  }\n\n} catch (e) {\n  error = e.message;\n}\n\nreturn [{\n  json: {\n    executionId: data.executionId,\n    success: !error,\n    txHash,\n    error,\n    route,\n    mocked,\n    quote,\n    executionMode,\n  }\n}];"
       },
       "id": "execute-swap",
       "name": "Execute Swap",
@@ -113,7 +139,8 @@
     },
     {
       "parameters": {
-        "jsCode": "// Update execution status in Appwrite\nconst data = $input.first().json;\n\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nif (!endpoint || !apiKey) {\n  return data;\n}\n\nawait fetch(\n  `${endpoint}/databases/${databaseId}/collections/executions/documents/${data.executionId}`,\n  {\n    method: 'PATCH',\n    headers: {\n      'Content-Type': 'application/json',\n      'X-Appwrite-Project': projectId,\n      'X-Appwrite-Key': apiKey,\n    },\n    body: JSON.stringify({\n      data: {\n        status: data.success ? 'completed' : 'failed',\n        tx_hash: data.txHash || '',\n        error: data.error || '',\n        completed_at: new Date().toISOString(),\n      },\n    }),\n  }\n);\n\nreturn data;"
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Update execution status in Appwrite\nconst items = $input.all();\nconst data = items[0]?.json || {};\n\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nif (!endpoint || !apiKey || !data.executionId) {\n  return [{ json: data }];\n}\n\ntry {\n  await fetch(\n    `${endpoint}/databases/${databaseId}/collections/executions/documents/${data.executionId}`,\n    {\n      method: 'PATCH',\n      headers: {\n        'Content-Type': 'application/json',\n        'X-Appwrite-Project': projectId,\n        'X-Appwrite-Key': apiKey,\n      },\n      body: JSON.stringify({\n        data: {\n          status: data.success ? 'completed' : 'failed',\n          tx_hash: data.txHash || '',\n          error: data.error || '',\n          mocked: data.mocked || false,\n          completed_at: new Date().toISOString(),\n        },\n      }),\n    }\n  );\n} catch (error) {\n  // Log but don't fail\n}\n\nreturn [{ json: data }];"
       },
       "id": "update-status",
       "name": "Update Execution Status",
@@ -123,18 +150,41 @@
     },
     {
       "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DISCORD_WEBHOOK_REPORTS }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"embeds\": [{\n    \"title\": \"{{ $json.success ? 'Swap Executed' : 'Swap Failed' }}\",\n    \"description\": \"{{ $json.mocked ? '(MOCK MODE - No real transaction)' : '' }}\",\n    \"color\": {{ $json.success ? 5763719 : 15158332 }},\n    \"fields\": [\n      {\n        \"name\": \"Execution ID\",\n        \"value\": \"`{{ $json.executionId }}`\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Route\",\n        \"value\": \"{{ $json.route }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Mode\",\n        \"value\": \"{{ $json.executionMode ? $json.executionMode.toUpperCase() : 'MOCK' }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"{{ $json.success ? 'Transaction Hash' : 'Error' }}\",\n        \"value\": \"{{ $json.success ? '`' + $json.txHash + '`' : $json.error }}\"\n      }\n    ],\n    \"footer\": {\n      \"text\": \"Treasury Ops Bot - Swap Executor\"\n    },\n    \"timestamp\": \"{{ $now.toISO() }}\"\n  }]\n}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "discord-result",
+      "name": "Discord Result",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1100, 300],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
         "respondWith": "json",
-        "responseBody": "={\n  \"success\": {{ $json.success }},\n  \"executionId\": \"{{ $json.executionId }}\",\n  \"txHash\": \"{{ $json.txHash }}\",\n  \"error\": \"{{ $json.error }}\"\n}"
+        "responseBody": "={\n  \"success\": {{ $json.success }},\n  \"executionId\": \"{{ $json.executionId }}\",\n  \"txHash\": {{ $json.txHash ? '\"' + $json.txHash + '\"' : 'null' }},\n  \"error\": {{ $json.error ? '\"' + $json.error + '\"' : 'null' }},\n  \"mocked\": {{ $json.mocked }},\n  \"route\": \"{{ $json.route }}\",\n  \"executionMode\": \"{{ $json.executionMode }}\"\n}"
       },
       "id": "respond-confirm",
       "name": "Respond Confirm",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [1100, 400]
+      "position": [1320, 400]
     },
     {
       "parameters": {
-        "jsCode": "// Mark as cancelled in Appwrite\nconst data = $input.first().json;\n\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nif (endpoint && apiKey) {\n  await fetch(\n    `${endpoint}/databases/${databaseId}/collections/executions/documents/${data.executionId}`,\n    {\n      method: 'PATCH',\n      headers: {\n        'Content-Type': 'application/json',\n        'X-Appwrite-Project': projectId,\n        'X-Appwrite-Key': apiKey,\n      },\n      body: JSON.stringify({\n        data: {\n          status: 'cancelled',\n          completed_at: new Date().toISOString(),\n        },\n      }),\n    }\n  );\n}\n\nreturn { cancelled: true, executionId: data.executionId };"
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Mark as cancelled in Appwrite\nconst items = $input.all();\nconst data = items[0]?.json || {};\n\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nif (endpoint && apiKey && data.executionId) {\n  try {\n    await fetch(\n      `${endpoint}/databases/${databaseId}/collections/executions/documents/${data.executionId}`,\n      {\n        method: 'PATCH',\n        headers: {\n          'Content-Type': 'application/json',\n          'X-Appwrite-Project': projectId,\n          'X-Appwrite-Key': apiKey,\n        },\n        body: JSON.stringify({\n          data: {\n            status: 'cancelled',\n            completed_at: new Date().toISOString(),\n          },\n        }),\n      }\n    );\n  } catch (error) {\n    // Log but don't fail\n  }\n}\n\nreturn [{ json: { cancelled: true, executionId: data.executionId } }];"
       },
       "id": "cancel-execution",
       "name": "Cancel Execution",
@@ -203,11 +253,17 @@
     },
     "Update Execution Status": {
       "main": [
-        [{ "node": "Respond Confirm", "type": "main", "index": 0 }]
+        [
+          { "node": "Discord Result", "type": "main", "index": 0 },
+          { "node": "Respond Confirm", "type": "main", "index": 0 }
+        ]
       ]
     }
   },
   "settings": {
     "executionOrder": "v1"
-  }
+  },
+  "staticData": null,
+  "tags": [],
+  "pinData": {}
 }

@@ -20,33 +20,86 @@
     },
     {
       "parameters": {
-        "jsCode": "// Fetch treasury balance from Circle Gateway\nconst apiKey = $env.CIRCLE_API_KEY;\nconst treasuryAddress = $env.CIRCLE_TREASURY_ADDRESS;\n\nif (!apiKey) {\n  throw new Error('CIRCLE_API_KEY not configured');\n}\n\nconst response = await fetch('https://api.circle.com/v1/w3s/wallets/balances', {\n  headers: {\n    'Authorization': `Bearer ${apiKey}`,\n    'Content-Type': 'application/json',\n  },\n});\n\nif (!response.ok) {\n  throw new Error(`Circle API error: ${response.status}`);\n}\n\nconst data = await response.json();\n\n// Calculate total USDC across all chains\nlet totalUsdc = 0;\nconst chainBalances = [];\n\nif (data.data && data.data.tokenBalances) {\n  for (const balance of data.data.tokenBalances) {\n    if (balance.token.symbol === 'USDC') {\n      const amount = parseFloat(balance.amount);\n      totalUsdc += amount;\n      chainBalances.push({\n        chain: balance.token.blockchain,\n        amount: amount,\n      });\n    }\n  }\n}\n\nreturn {\n  totalUsdc,\n  chainBalances,\n  timestamp: new Date().toISOString(),\n};"
+        "method": "POST",
+        "url": "={{ $env.CIRCLE_GATEWAY_URL || 'https://gateway-api.circle.com' }}/v1/balances",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.CIRCLE_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"address\": \"{{ $env.CIRCLE_TREASURY_ADDRESS }}\",\n  \"sources\": [\n    { \"domain\": 0 },\n    { \"domain\": 3 },\n    { \"domain\": 6 }\n  ]\n}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
       },
       "id": "fetch-balance",
       "name": "Fetch Circle Balance",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [220, 0]
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [220, -100],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
     },
     {
       "parameters": {
-        "jsCode": "// Fetch ETH/USDC price from Uniswap v3 subgraph\nconst query = `{\n  pool(id: \"0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8\") {\n    token0Price\n    token1Price\n    token0 { symbol }\n    token1 { symbol }\n  }\n}`;\n\nconst response = await fetch(\n  'https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3',\n  {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify({ query }),\n  }\n);\n\nconst data = await response.json();\nconst pool = data.data?.pool;\n\nif (!pool) {\n  throw new Error('Failed to fetch Uniswap pool data');\n}\n\n// ETH/USDC pool - token0 is USDC, token1 is ETH\n// token0Price = how many USDC per ETH\nconst ethPrice = parseFloat(pool.token0Price);\n\nreturn {\n  ethPrice,\n  timestamp: new Date().toISOString(),\n};"
+        "method": "POST",
+        "url": "=https://gateway.thegraph.com/api/{{ $env.GRAPH_API_KEY }}/subgraphs/id/{{ $env.GRAPH_SUBGRAPH_BASE || 'FQ6JYszEKApsBpAmiHesRsd9Ygc6mzmpNRANeVQFYoVX' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"query\": \"{ pools(first: 1, where: { token0_: { symbol: \\\"WETH\\\" }, token1_: { symbol: \\\"USDC\\\" } }, orderBy: totalValueLockedUSD, orderDirection: desc) { token0Price token1Price totalValueLockedUSD } }\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
       },
       "id": "fetch-price",
-      "name": "Fetch ETH Price",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [220, 200]
+      "name": "Fetch ETH Price (The Graph)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [220, 100],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
     },
     {
       "parameters": {
-        "jsCode": "// Combine balance and price data into report\nconst balanceData = $('Fetch Circle Balance').first().json;\nconst priceData = $('Fetch ETH Price').first().json;\n\nconst formatCurrency = (n) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;\n\nconst chainList = balanceData.chainBalances\n  .map(c => `  • ${c.chain}: ${formatCurrency(c.amount)}`)\n  .join('\\n');\n\nconst report = {\n  title: 'Daily Treasury Report',\n  date: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),\n  totalBalance: formatCurrency(balanceData.totalUsdc),\n  ethPrice: formatCurrency(priceData.ethPrice),\n  chainBreakdown: chainList,\n};\n\nreturn report;"
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Process Circle Gateway balance response and ETH price\n// This node receives data from two parallel HTTP requests\nconst allInputs = $input.all();\n\n// Find the Circle balance and price responses\nlet balanceResponse = null;\nlet priceResponse = null;\n\n// Data comes from the node references\ntry {\n  balanceResponse = $('Fetch Circle Balance').first()?.json || {};\n} catch (e) {\n  balanceResponse = {};\n}\n\ntry {\n  priceResponse = $('Fetch ETH Price (The Graph)').first()?.json || {};\n} catch (e) {\n  priceResponse = {};\n}\n\n// Parse Circle balance\nlet totalUsdc = 0;\nconst chainBalances = [];\nconst domainNames = {\n  0: 'Ethereum',\n  3: 'Arbitrum', \n  6: 'Base'\n};\n\nif (balanceResponse.balances) {\n  for (const balance of balanceResponse.balances) {\n    const amount = parseFloat(balance.amount || '0') / 1e6; // USDC has 6 decimals\n    totalUsdc += amount;\n    chainBalances.push({\n      chain: domainNames[balance.domain] || `Domain ${balance.domain}`,\n      amount: amount,\n    });\n  }\n} else if (balanceResponse.data?.balances) {\n  for (const balance of balanceResponse.data.balances) {\n    const amount = parseFloat(balance.amount || '0') / 1e6;\n    totalUsdc += amount;\n    chainBalances.push({\n      chain: domainNames[balance.domain] || `Domain ${balance.domain}`,\n      amount: amount,\n    });\n  }\n}\n\n// Parse ETH price from The Graph\nlet ethPrice = 0;\nif (priceResponse.data?.pools?.[0]) {\n  const pool = priceResponse.data.pools[0];\n  // token1Price gives USDC per WETH\n  ethPrice = parseFloat(pool.token1Price) || 0;\n}\n\n// Format for display\nconst formatCurrency = (n) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;\n\nconst chainList = chainBalances.length > 0\n  ? chainBalances.map(c => `  - ${c.chain}: ${formatCurrency(c.amount)}`).join('\\n')\n  : '  No balances found';\n\nreturn [{\n  json: {\n    title: 'Daily Treasury Report',\n    date: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),\n    totalBalance: formatCurrency(totalUsdc),\n    totalBalanceRaw: totalUsdc,\n    ethPrice: formatCurrency(ethPrice),\n    ethPriceRaw: ethPrice,\n    chainBreakdown: chainList,\n    chainBalances,\n    timestamp: new Date().toISOString(),\n  }\n}];"
       },
       "id": "format-report",
       "name": "Format Report",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [440, 100]
+      "position": [440, 0]
     },
     {
       "parameters": {
@@ -54,23 +107,32 @@
         "url": "={{ $env.DISCORD_WEBHOOK_REPORTS }}",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"embeds\": [{\n    \"title\": \"{{ $json.title }}\",\n    \"description\": \"{{ $json.date }}\",\n    \"color\": 3447003,\n    \"fields\": [\n      {\n        \"name\": \"Total Balance\",\n        \"value\": \"{{ $json.totalBalance }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"ETH Price\",\n        \"value\": \"{{ $json.ethPrice }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Chain Breakdown\",\n        \"value\": \"{{ $json.chainBreakdown }}\"\n      }\n    ],\n    \"footer\": {\n      \"text\": \"Treasury Ops Bot\"\n    },\n    \"timestamp\": \"{{ $now.toISO() }}\"\n  }]\n}"
+        "jsonBody": "={\n  \"embeds\": [{\n    \"title\": \"{{ $json.title }}\",\n    \"description\": \"{{ $json.date }}\",\n    \"color\": 3447003,\n    \"fields\": [\n      {\n        \"name\": \"Total USDC Balance\",\n        \"value\": \"{{ $json.totalBalance }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"ETH Price\",\n        \"value\": \"{{ $json.ethPrice }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Chain Breakdown\",\n        \"value\": \"```{{ $json.chainBreakdown }}```\"\n      }\n    ],\n    \"footer\": {\n      \"text\": \"Treasury Ops Bot | Data: Circle Gateway + The Graph\"\n    },\n    \"timestamp\": \"{{ $json.timestamp }}\"\n  }]\n}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
       },
       "id": "discord-report",
       "name": "Send to Discord",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [660, 100]
+      "typeVersion": 4.4,
+      "position": [660, -100],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "// Save balance to Appwrite for history\nconst balanceData = $('Fetch Circle Balance').first().json;\nconst priceData = $('Fetch ETH Price').first().json;\n\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nif (!endpoint || !apiKey) {\n  console.log('Appwrite not configured, skipping save');\n  return { saved: false };\n}\n\n// Save each chain balance\nfor (const chain of balanceData.chainBalances) {\n  await fetch(\n    `${endpoint}/databases/${databaseId}/collections/balances/documents`,\n    {\n      method: 'POST',\n      headers: {\n        'Content-Type': 'application/json',\n        'X-Appwrite-Project': projectId,\n        'X-Appwrite-Key': apiKey,\n      },\n      body: JSON.stringify({\n        documentId: 'unique()',\n        data: {\n          timestamp: new Date().toISOString(),\n          chain: chain.chain,\n          token: 'USDC',\n          balance: chain.amount.toString(),\n          balance_usd: chain.amount,\n          source: 'circle',\n        },\n      }),\n    }\n  );\n}\n\n// Save ETH price\nawait fetch(\n  `${endpoint}/databases/${databaseId}/collections/price_history/documents`,\n  {\n    method: 'POST',\n    headers: {\n      'Content-Type': 'application/json',\n      'X-Appwrite-Project': projectId,\n      'X-Appwrite-Key': apiKey,\n    },\n    body: JSON.stringify({\n      documentId: 'unique()',\n      data: {\n        timestamp: new Date().toISOString(),\n        token: 'ETH',\n        price_usd: priceData.ethPrice,\n        source: 'uniswap',\n      },\n    }),\n  }\n);\n\nreturn { saved: true, timestamp: new Date().toISOString() };"
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Save balances and price to Appwrite\nconst items = $input.all();\nconst data = items[0]?.json || {};\n\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nif (!endpoint || !apiKey) {\n  return [{ json: { saved: false, reason: 'Appwrite not configured' } }];\n}\n\ntry {\n  // Save each chain balance\n  const chainBalances = data.chainBalances || [];\n  for (const chain of chainBalances) {\n    await fetch(\n      `${endpoint}/databases/${databaseId}/collections/balances/documents`,\n      {\n        method: 'POST',\n        headers: {\n          'Content-Type': 'application/json',\n          'X-Appwrite-Project': projectId,\n          'X-Appwrite-Key': apiKey,\n        },\n        body: JSON.stringify({\n          documentId: 'unique()',\n          data: {\n            timestamp: data.timestamp,\n            chain: chain.chain,\n            token: 'USDC',\n            balance: chain.amount.toString(),\n            balance_usd: chain.amount,\n            source: 'circle_gateway',\n          },\n        }),\n      }\n    );\n  }\n\n  // Save ETH price\n  await fetch(\n    `${endpoint}/databases/${databaseId}/collections/price_history/documents`,\n    {\n      method: 'POST',\n      headers: {\n        'Content-Type': 'application/json',\n        'X-Appwrite-Project': projectId,\n        'X-Appwrite-Key': apiKey,\n      },\n      body: JSON.stringify({\n        documentId: 'unique()',\n        data: {\n          timestamp: data.timestamp,\n          token: 'ETH',\n          price_usd: data.ethPriceRaw || 0,\n          source: 'thegraph_uniswap_base',\n        },\n      }),\n    }\n  );\n\n  return [{ json: { saved: true, timestamp: data.timestamp } }];\n} catch (error) {\n  return [{ json: { saved: false, reason: error.message } }];\n}"
       },
       "id": "save-appwrite",
       "name": "Save to Appwrite",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [660, 300]
+      "position": [660, 100]
     }
   ],
   "connections": {
@@ -78,7 +140,7 @@
       "main": [
         [
           { "node": "Fetch Circle Balance", "type": "main", "index": 0 },
-          { "node": "Fetch ETH Price", "type": "main", "index": 0 }
+          { "node": "Fetch ETH Price (The Graph)", "type": "main", "index": 0 }
         ]
       ]
     },
@@ -87,7 +149,7 @@
         [{ "node": "Format Report", "type": "main", "index": 0 }]
       ]
     },
-    "Fetch ETH Price": {
+    "Fetch ETH Price (The Graph)": {
       "main": [
         [{ "node": "Format Report", "type": "main", "index": 0 }]
       ]
@@ -103,5 +165,9 @@
   },
   "settings": {
     "executionOrder": "v1"
-  }
+  },
+  "staticData": null,
+  "tags": [],
+  "pinData": {}
+}
 }

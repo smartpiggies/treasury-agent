@@ -33,6 +33,13 @@ dashboard/dist/
 *.pem
 *.key
 
+# n8n environment files with actual values
+n8n/.env
+n8n/.env.*
+!n8n/.env.example
+n8n/env-vars.filled
+*.filled.template
+
 # Claude Code local settings
 .claude/
 CLAUDE.local.md
