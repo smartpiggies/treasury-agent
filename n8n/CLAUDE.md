@@ -149,7 +149,7 @@ GRAPH_API_KEY=                              # Required: from thegraph.com/studio
 
 # Mainnet subgraphs (for live mode)
 GRAPH_SUBGRAPH_BASE=FQ6JYszEKApsBpAmiHesRsd9Ygc6mzmpNRANeVQFYoVX
-GRAPH_SUBGRAPH_ARBITRUM=FbCGRftH4a3yZugY7TnbYgPJVEv2LvMT6oF1fxPe9aJM
+GRAPH_SUBGRAPH_ARBITRUM=5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV
 
 # ===================
 # Circle Gateway
