@@ -132,7 +132,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Skip Appwrite save - fetch() not available in Code nodes\nconst items = $input.all();\nconst data = items[0]?.json || {};\nreturn [{ json: { saved: false, reason: 'Appwrite save disabled - use HTTP Request node instead', data: data } }];"
+        "jsCode": "// Save daily balance snapshot to Appwrite\nconst items = $input.all();\nconst data = items[0]?.json || {};\n\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nif (!endpoint || !apiKey) {\n  return [{ json: { saved: false, reason: 'Appwrite not configured', data: data } }];\n}\n\ntry {\n  const response = await fetch(\n    `${endpoint}/databases/${databaseId}/collections/balances/documents`,\n    {\n      method: 'POST',\n      headers: {\n        'Content-Type': 'application/json',\n        'X-Appwrite-Project': projectId,\n        'X-Appwrite-Key': apiKey,\n      },\n      body: JSON.stringify({\n        documentId: 'unique()',\n        data: {\n          timestamp: data.timestamp || new Date().toISOString(),\n          total_usd: String(data.totalBalanceRaw || 0),\n          chain_balances: JSON.stringify(data.chainBalances || []),\n          eth_price: String(data.ethPriceRaw || 0),\n          source: 'daily_report',\n        },\n      }),\n    }\n  );\n  const result = await response.json();\n  return [{ json: { saved: true, documentId: result.$id, data: data } }];\n} catch (error) {\n  return [{ json: { saved: false, reason: error.message, data: data } }];\n}"
       },
       "id": "save-appwrite",
       "name": "Save to Appwrite",
