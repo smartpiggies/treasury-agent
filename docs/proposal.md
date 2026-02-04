@@ -251,14 +251,17 @@ The complexity is hidden from users, but under the hood:
 
 We're targeting prizes that align with our accessibility-focused agent architecture:
 
-### Target Prizes Overview
+### Target Prizes Overview (Top 3)
 
 | Partner | Prize | Amount | Our Angle |
 |---------|-------|--------|-----------|
-| **LI.FI** | Best AI × LI.FI Smart App | $2,000 | Agent uses LI.FI as cross-chain execution layer |
-| **Circle** | Best Chain Abstracted USDC Apps | $5,000 | Unified USDC balance, instant transfers |
-| **Circle** | Global Payouts & Treasury Systems | $2,500 | Multi-recipient family/team payouts |
-| **Uniswap** | v4 Agentic Finance | $5,000 | Agent-driven swaps via Uniswap v4 |
+| **Circle/Arc** | Chain Abstracted USDC Apps | $5,000 | Unified USDC balance via Gateway, instant cross-chain |
+| **Uniswap** | v4 Agentic Finance | $5,000 | Direct same-chain swaps + price data via subgraph |
+| **LI.FI** | Best AI × LI.FI Smart App | $2,000 | Cross-chain swap execution layer |
+
+**Total Target: $12,000**
+
+**Bonus**: ENS integration included (resolves .eth names) - could also submit for ENS prize as fallback.
 
 ---
 
@@ -318,23 +321,53 @@ We're targeting prizes that align with our accessibility-focused agent architect
 
 ---
 
-### Circle: Global Payouts & Treasury Systems ($2,500)
-
-**Prize Description**: "Automated multi-recipient settlement with USDC"
-
-**Our Narrative**:
-
-> Families and small teams need to distribute funds - allowances, expense reimbursements, contributor payments. Treasury Agent enables Discord-triggered payouts: "Send $200 to each kid for the month" executes automatically with appropriate approvals, settling instantly via Circle Gateway.
-
----
-
 ### Uniswap: v4 Agentic Finance ($5,000)
 
 **Prize Description**: "Agent-driven financial systems using Uniswap v4"
 
 **Our Narrative**:
 
-> Treasury Agent exemplifies "agentic finance" - autonomous monitoring, threshold-based decisions, and programmatic execution. For same-chain operations, the agent uses Uniswap v4 directly for optimal execution. The agent queries v4 pools for real-time pricing and executes swaps through the protocol - all invisible to users who just asked to "swap some ETH."
+> Treasury Agent exemplifies "agentic finance" - autonomous monitoring, threshold-based decisions, and programmatic execution. For same-chain operations, the agent uses Uniswap v4 directly for optimal execution. The agent queries v4 pools for real-time pricing via The Graph and executes swaps through the Universal Router - all invisible to users who just asked to "swap some ETH."
+
+**Key Integration Points**:
+- Real-time price monitoring via Uniswap v3/v4 subgraph on The Graph
+- Direct swap execution via Universal Router for same-chain trades
+- Automatic slippage protection based on pool liquidity
+- Smart routing: Uniswap for same-chain (fastest), LI.FI for cross-chain
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    UNISWAP v4 INTEGRATION                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  PRICE MONITORING (Every 5 min)                                 │
+│  ──────────────────────────────                                 │
+│  The Graph → Uniswap v3 Subgraph → bundles.ethPriceUSD          │
+│  → Alert if threshold crossed → Discord notification            │
+│                                                                 │
+│  SAME-CHAIN SWAPS                                               │
+│  ────────────────                                               │
+│  User: "Swap $500 ETH to USDC on Base"                          │
+│           ↓                                                     │
+│  Agent: Query Uniswap pool for best price                       │
+│           ↓                                                     │
+│  Agent: Execute via Universal Router                            │
+│           ↓                                                     │
+│  User: "Done! Swapped 0.15 ETH for 498.50 USDC"                 │
+│                                                                 │
+│  Why Uniswap for same-chain?                                    │
+│  • Fastest execution (no bridge overhead)                       │
+│  • Lowest fees (direct pool access)                             │
+│  • Best liquidity (largest DEX)                                 │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Bonus: ENS Integration
+
+We also integrated ENS for human-readable addresses - users can send to `dad.eth` instead of scary hex addresses. Could submit for ENS prize as fallback.
 
 ---
 

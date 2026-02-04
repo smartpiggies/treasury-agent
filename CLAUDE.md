@@ -1,8 +1,28 @@
-# Treasury Ops Bot - Claude Code Context
+# Treasury Agent - Claude Code Context
 
 ## Project Overview
 
-This is a **hackathon POC** for an autonomous DeFi treasury management agent. The goal is to learn n8n, Circle Arc, Uniswap, and LI.FI integrations while building a functional proof-of-concept that can later become production-ready.
+**Treasury Agent** is a Discord-native AI that manages crypto for families, teams, and small organizations through conversation. Built for EthGlobal HackMoney 2026.
+
+**Core Idea**: "Just chat. The agent handles the complexity."
+
+```
+Mom: "@TreasuryAgent what's our balance?"
+Agent: "You have $12,340 total - $8,200 in stablecoins and $4,140 in ETH"
+
+Dad: "@TreasuryAgent send $100 to alex.eth"
+Agent: "Got it! Resolved alex.eth → 0x742d... Sending now."
+```
+
+## Target Bounties (Top 3)
+
+| Partner | Prize | Amount | Integration |
+|---------|-------|--------|-------------|
+| **Circle/Arc** | Chain Abstracted USDC Apps | $5,000 | Gateway for unified USDC balance + instant transfers |
+| **Uniswap** | v4 Agentic Finance | $5,000 | Direct same-chain swaps + price data via subgraph |
+| **LI.FI** | Best AI × LI.FI Smart App | $2,000 | Cross-chain swap execution |
+
+**Total Target: $12,000**
 
 ## Architecture
 
@@ -15,11 +35,61 @@ Hostinger VPS
 └── Dashboard - https://treasury-agent.sites.smartpiggies.cloud
 
 External Services
-├── Circle Arc - Chain-abstracted USDC, cross-chain transfers
-├── Uniswap v4 - Same-chain swaps, price data via subgraph
-├── LI.FI - Cross-chain swaps, multi-step DeFi via Composer
+├── Circle Gateway - Chain-abstracted USDC, instant cross-chain (<500ms)
+├── Uniswap v4 - Same-chain swaps (fastest, cheapest)
+├── LI.FI - Cross-chain swaps with token conversion
+├── ENS - Human-readable addresses (vitalik.eth → 0x...)
 └── Discord - Notifications + human-in-the-loop confirmations
 ```
+
+## Smart Routing Logic
+
+The agent automatically picks the best execution path:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    EXECUTION ROUTING                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  USER REQUEST: "Swap ETH to USDC" or "Send to alex.eth"         │
+│                                                                 │
+│              ┌────────────────────────────────┐                 │
+│              │         ROUTING LOGIC          │                 │
+│              └────────────────────────────────┘                 │
+│                           │                                     │
+│         ┌─────────────────┼─────────────────┐                   │
+│         ▼                 ▼                 ▼                   │
+│   Same Chain?       Cross Chain?      USDC Only?                │
+│         │                 │                 │                   │
+│         ▼                 ▼                 ▼                   │
+│    ┌────────┐        ┌────────┐        ┌────────┐               │
+│    │UNISWAP │        │ LI.FI  │        │ CIRCLE │               │
+│    │  v4    │        │        │        │GATEWAY │               │
+│    └────────┘        └────────┘        └────────┘               │
+│    Fastest,          Best bridge,      Instant,                 │
+│    cheapest          auto-routing      <500ms                   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Decision Logic:**
+- Same chain swap → **Uniswap v4** (fastest, cheapest, direct)
+- Cross chain swap → **LI.FI** (finds best bridge + route)
+- USDC between chains → **Circle Gateway** (instant, <500ms)
+
+## Key Features
+
+### 1. ENS Name Resolution
+Send to human-readable addresses: `"Send $100 to dad.eth"`
+
+### 2. Chain-Abstracted Balance
+Circle Gateway provides unified USDC view across Ethereum, Arbitrum, Base.
+
+### 3. Price Monitoring
+ETH price from Uniswap v3 subgraph via The Graph (decentralized network).
+
+### 4. N-of-M Approvals
+Family consensus for large transactions via Discord reactions.
 
 ## Monorepo Structure
 
@@ -33,121 +103,52 @@ treasury-agent/
 └── .env.example   # Environment variables template
 ```
 
+## n8n Workflows
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| **Daily Report** | 9 AM daily | Circle balance + ETH price → Discord |
+| **Price Monitor** | Every 5 min | ETH price alerts when thresholds crossed |
+| **Swap Executor** | Webhook | Validate → Route → Execute → Report |
+| **Weekly Summary** | Monday 8 AM | Aggregate stats → Discord |
+| **Error Handler** | Error trigger | Catch failures → Discord alert |
+
+## Current Integration Status
+
+| Service | Status | Notes |
+|---------|--------|-------|
+| Circle Gateway | ✅ Working | API format fixed, deposit USDC to enable |
+| Uniswap | ⚠️ In Progress | Price data working, adding direct swaps |
+| LI.FI | ✅ Working | Cross-chain quotes + execution |
+| ENS | ✅ Working | Resolves .eth names via The Graph |
+| Appwrite | ✅ Working | All 4 collections tested |
+| Discord | ✅ Working | Both webhooks configured |
+| n8n | ✅ Running | https://n8n.smartpiggies.cloud |
+
 ## Key Commands
 
 ```bash
-# Dashboard development
-npm run dashboard:dev      # Start dashboard dev server
+# Dashboard
+npm run dashboard:dev      # Start dev server
 npm run dashboard:build    # Build for production
-npm run dashboard:install  # Install dashboard dependencies
 
 # Workflows
-npm run workflows:export   # Export from n8n UI to n8n/workflows/
-npm run workflows:import   # Import to n8n from n8n/workflows/
+npm run workflows:export   # Export from n8n UI
+npm run workflows:import   # Import to n8n
 
-# Database setup
-bash scripts/setup-appwrite-db.sh  # Create Appwrite database schema
-
-# Integration tests (run from root, requires .env.local)
-npm run test:all        # Run all integration tests
-npm run test:discord    # Test Discord webhooks
-npm run test:appwrite   # Test Appwrite database CRUD
-npm run test:rpc        # Test RPC endpoints (Infura testnets)
-npm run test:lifi       # Test LI.FI API connectivity
+# Tests
+npm run test:all           # Run all integration tests
 ```
-
-## Data Storage
-
-**Primary**: Appwrite Database (hosted on Hostinger)
-- Database ID: `treasury`
-- `price_history` - Price snapshots from monitoring
-- `executions` - Swap/rebalance transaction records
-- `alerts` - Alert history and acknowledgments
-- `balances` - Treasury balance snapshots across chains
-
-**Setup**: Run `bash scripts/setup-appwrite-db.sh` to create the database schema.
-See `docs/appwrite-setup.md` for full documentation.
-
-**No Google Sheets** - All data persisted in Appwrite for easier querying and export.
-
-### Appwrite Enum Constraints
-
-When writing to collections, use these allowed values:
-
-**executions.type**: `swap`, `rebalance`, `transfer`
-**executions.status**: `pending`, `approved`, `executing`, `completed`, `failed`
-**alerts.type**: `price_high`, `price_low`, `execution_failed`, `limit_reached`, `system_error`
-**alerts.severity**: `info`, `warning`, `critical`
-
-## Wallet Strategy
-
-**POC uses EOA** for simplicity:
-- Single testnet private key in environment
-- Signing handled in n8n via ethers.js code nodes
-- Future: migrate to Safe multisig for production
-
-## Key Integration Patterns
-
-### Circle Arc
-- Use for unified USDC balance queries across chains
-- Cross-chain USDC transfers (<500ms)
-- API: REST with Bearer token auth
-
-### Uniswap v4
-- Same-chain swaps only
-- Price data via The Graph subgraph
-- Direct contract interaction for swaps
-
-### LI.FI
-- Cross-chain swaps
-- Multi-step DeFi operations via Composer
-- Automatic route optimization
-
-## Discord Setup
-
-**Webhooks** (simple, for POC):
-- `DISCORD_WEBHOOK_REPORTS` - Daily/weekly reports
-- `DISCORD_WEBHOOK_ALERTS` - Price alerts
-
-**Bot** (optional, for interactive confirmations):
-- Only needed if using button-based swap confirmations
-- Requires: `applications.commands` scope
 
 ## Environment Variables
 
 See `.env.example` for full list. Key groups:
-- Circle API credentials
-- LI.FI integrator ID
-- Appwrite connection details
-- Discord webhooks
-- RPC endpoints per chain
-- Testnet wallet (EOA)
-
-## Testnets
-
-For hackathon demo, focus on:
-- Sepolia (Ethereum testnet)
-- Base Sepolia
-- Arbitrum Sepolia
-
-Use testnet USDC from Circle faucet.
-
-## Code Patterns
-
-- **n8n**: Use environment variables via `{{$env.VAR_NAME}}`
-- **Dashboard**: TanStack Query for data fetching, Appwrite SDK for auth
-- **Styling**: Tailwind + shadcn/ui components
-
-## Current Integration Status (Feb 2026)
-
-| Service | Status | Notes |
-|---------|--------|-------|
-| Appwrite | ✅ Working | All 4 collections tested |
-| Discord | ✅ Working | Both webhooks configured |
-| RPC (Infura) | ✅ Working | Sepolia, Arb Sepolia, Base Sepolia, Polygon Amoy |
-| LI.FI | ✅ Working | API key + integrator ID configured |
-| Circle | ⚠️ Blocked | Login issues during hackathon - use LI.FI for balance queries |
-| n8n | ✅ Instance running | https://n8n.smartpiggies.cloud - workflows imported |
+- `CIRCLE_*` - Gateway API (no auth header needed)
+- `GRAPH_API_KEY` - The Graph decentralized network
+- `LIFI_INTEGRATOR_ID` - LI.FI integration
+- `DISCORD_WEBHOOK_*` - Reports and alerts
+- `APPWRITE_*` - Database connection
+- `TREASURY_*` - Wallet address and private key
 
 ## Live URLs
 
@@ -155,11 +156,17 @@ Use testnet USDC from Circle faucet.
 - **Appwrite Console**: https://aw.smartpiggies.cloud/console
 - **Dashboard**: https://treasury-agent.sites.smartpiggies.cloud
 
+## Data Storage
+
+**Appwrite Database** (ID: `treasury`):
+- `price_history` - Price snapshots from monitoring
+- `executions` - Swap/transfer records with ENS info
+- `alerts` - Alert history
+- `balances` - Treasury balance snapshots
+
 ## Files to Never Commit
 
-The `.gitignore` protects these, but be aware:
-- `.env` files (use `.env.example` as template)
-- `dot-env*` files (env file transfers)
+- `.env` files (use `.env.example`)
 - `*credentials*.json`
 - `*.pem`, `*.key`
 - `.n8n/` (contains credentials)

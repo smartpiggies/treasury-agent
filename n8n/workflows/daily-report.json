@@ -26,10 +26,6 @@
         "headerParameters": {
           "parameters": [
             {
-              "name": "Authorization",
-              "value": "=Bearer {{ $env.CIRCLE_API_KEY }}"
-            },
-            {
               "name": "Content-Type",
               "value": "application/json"
             }
@@ -37,7 +33,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"address\": \"{{ $env.CIRCLE_TREASURY_ADDRESS }}\",\n  \"sources\": [\n    { \"domain\": 0 },\n    { \"domain\": 3 },\n    { \"domain\": 6 }\n  ]\n}",
+        "jsonBody": "={\n  \"token\": \"USDC\",\n  \"sources\": [\n    { \"domain\": 0, \"depositor\": \"{{ $env.CIRCLE_TREASURY_ADDRESS }}\" },\n    { \"domain\": 3, \"depositor\": \"{{ $env.CIRCLE_TREASURY_ADDRESS }}\" },\n    { \"domain\": 6, \"depositor\": \"{{ $env.CIRCLE_TREASURY_ADDRESS }}\" }\n  ]\n}",
         "options": {
           "response": {
             "response": {
@@ -103,7 +99,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Process merged data from Circle Gateway and The Graph\nconst items = $input.all();\n\nlet balanceData = {};\nlet priceData = {};\n\n// Identify which response is which by structure\nfor (const item of items) {\n  const json = item.json || {};\n  if (json.data?.bundles) {\n    priceData = json;\n  } else if (json.balances || json.data?.balances || json.success === false) {\n    balanceData = json;\n  }\n}\n\n// Parse Circle balance\nlet totalUsdc = 0;\nconst chainBalances = [];\nconst domainNames = {\n  0: 'Ethereum',\n  3: 'Arbitrum', \n  6: 'Base'\n};\n\nconst balances = balanceData.balances || balanceData.data?.balances || [];\nfor (const balance of balances) {\n  const amount = parseFloat(balance.amount || '0') / 1e6;\n  totalUsdc += amount;\n  chainBalances.push({\n    chain: domainNames[balance.domain] || `Domain ${balance.domain}`,\n    amount: amount,\n  });\n}\n\n// Parse ETH price from The Graph bundles\nlet ethPrice = 0;\nif (priceData.data?.bundles?.[0]) {\n  ethPrice = parseFloat(priceData.data.bundles[0].ethPriceUSD) || 0;\n}\n\n// Format for display\nconst formatCurrency = (n) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;\n\nconst chainList = chainBalances.length > 0\n  ? chainBalances.map(c => `  - ${c.chain}: ${formatCurrency(c.amount)}`).join('\\n')\n  : '  No balances found';\n\nreturn [{\n  json: {\n    title: 'Daily Treasury Report',\n    date: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),\n    totalBalance: formatCurrency(totalUsdc),\n    totalBalanceRaw: totalUsdc,\n    ethPrice: formatCurrency(ethPrice),\n    ethPriceRaw: ethPrice,\n    chainBreakdown: chainList,\n    chainBalances,\n    timestamp: new Date().toISOString(),\n  }\n}];"
+        "jsCode": "// Process merged data from Circle Gateway and The Graph\nconst items = $input.all();\n\nlet balanceData = {};\nlet priceData = {};\n\n// Identify which response is which by structure\nfor (const item of items) {\n  const json = item.json || {};\n  if (json.data?.bundles) {\n    priceData = json;\n  } else if (json.token === 'USDC' || json.balances || json.data?.balances) {\n    balanceData = json;\n  }\n}\n\n// Parse Circle Gateway balance (new format: balance is string like \"1000.50\")\nlet totalUsdc = 0;\nconst chainBalances = [];\nconst domainNames = {\n  0: 'Ethereum',\n  3: 'Arbitrum', \n  6: 'Base'\n};\n\nconst balances = balanceData.balances || balanceData.data?.balances || [];\nfor (const bal of balances) {\n  // New API returns 'balance' as formatted string (e.g., \"1000.50\")\n  const amount = parseFloat(bal.balance || bal.amount || '0');\n  totalUsdc += amount;\n  chainBalances.push({\n    chain: domainNames[bal.domain] || `Domain ${bal.domain}`,\n    amount: amount,\n  });\n}\n\n// Parse ETH price from The Graph bundles\nlet ethPrice = 0;\nif (priceData.data?.bundles?.[0]) {\n  ethPrice = parseFloat(priceData.data.bundles[0].ethPriceUSD) || 0;\n}\n\n// Format for display\nconst formatCurrency = (n) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;\n\nconst chainList = chainBalances.length > 0\n  ? chainBalances.map(c => `  - ${c.chain}: ${formatCurrency(c.amount)}`).join('\\n')\n  : '  No balances found (deposit USDC to Gateway first)';\n\nreturn [{\n  json: {\n    title: 'Daily Treasury Report',\n    date: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),\n    totalBalance: formatCurrency(totalUsdc),\n    totalBalanceRaw: totalUsdc,\n    ethPrice: formatCurrency(ethPrice),\n    ethPriceRaw: ethPrice,\n    chainBreakdown: chainList,\n    chainBalances,\n    timestamp: new Date().toISOString(),\n  }\n}];"
       },
       "id": "format-report",
       "name": "Format Report",
