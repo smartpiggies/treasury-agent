@@ -241,20 +241,29 @@ docker exec n8n env | grep -E "(EXECUTION|GRAPH|DISCORD|APPWRITE|CIRCLE)"
 
 ### Circle Gateway - Balance Query
 
-**IMPORTANT**: Use the Gateway API, NOT the legacy Wallet API.
+**IMPORTANT**: Use the Gateway API, NOT the legacy Wallet API. The API requires `token` and `depositor` fields.
 
 ```javascript
 // HTTP Request node configuration
 // URL: {{$env.CIRCLE_GATEWAY_URL}}/v1/balances
 // Method: POST
-// Headers: Authorization: Bearer {{$env.CIRCLE_API_KEY}}
+// Headers: Content-Type: application/json (NO Authorization header needed)
 // Body:
 {
-  "address": "{{$env.CIRCLE_TREASURY_ADDRESS}}",
+  "token": "USDC",
   "sources": [
-    { "domain": 0 },  // Ethereum
-    { "domain": 3 },  // Arbitrum
-    { "domain": 6 }   // Base
+    { "domain": 0, "depositor": "{{$env.CIRCLE_TREASURY_ADDRESS}}" },  // Ethereum
+    { "domain": 3, "depositor": "{{$env.CIRCLE_TREASURY_ADDRESS}}" },  // Arbitrum
+    { "domain": 6, "depositor": "{{$env.CIRCLE_TREASURY_ADDRESS}}" }   // Base
+  ]
+}
+
+// Response format:
+{
+  "balances": [
+    { "domain": 0, "balance": "1000.50" },  // balance as formatted string
+    { "domain": 3, "balance": "500.25" },
+    { "domain": 6, "balance": "250.00" }
   ]
 }
 ```

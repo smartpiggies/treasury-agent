@@ -164,13 +164,22 @@ if (sourceChain === destChain) {
 ```javascript
 // Balance query
 POST https://gateway-api.circle.com/v1/balances
-Headers: Authorization: Bearer {{$env.CIRCLE_API_KEY}}
+Headers: Content-Type: application/json
 Body: {
-  "address": "0x...",
+  "token": "USDC",
   "sources": [
-    { "domain": 0 },  // Ethereum
-    { "domain": 3 },  // Arbitrum
-    { "domain": 6 }   // Base
+    { "domain": 0, "depositor": "0x..." },  // Ethereum
+    { "domain": 3, "depositor": "0x..." },  // Arbitrum
+    { "domain": 6, "depositor": "0x..." }   // Base
+  ]
+}
+
+// Response format:
+{
+  "balances": [
+    { "domain": 0, "balance": "1000.50" },  // balance as formatted string
+    { "domain": 3, "balance": "500.25" },
+    { "domain": 6, "balance": "250.00" }
   ]
 }
 ```
