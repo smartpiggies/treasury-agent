@@ -1,0 +1,249 @@
+{
+  "name": "Discord Webhook Handler",
+  "nodes": [
+    {
+      "id": "webhook-trigger",
+      "name": "Discord Command Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "discord-cmd",
+      "parameters": {
+        "path": "discord-cmd",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "parse-intent",
+      "name": "Parse Intent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const content = $input.first().json.body?.content || $input.first().json.content || '';\nconst lowerContent = content.toLowerCase().trim();\nlet intent = 'unknown';\nlet params = {};\n\n// Check for deposit intent first (new!)\nif (lowerContent.includes('deposit')) {\n  intent = 'deposit';\n  // Match patterns like \"deposit $100\", \"deposit 50 USDC\", \"deposit $100 on Base\"\n  const depositMatch = lowerContent.match(/deposit\\s*\\$?(\\d+(?:\\.\\d+)?)\\s*(?:usdc)?(?:\\s+(?:on|to)\\s+(ethereum|arbitrum|base))?/i);\n  if (depositMatch) {\n    params.amount = depositMatch[1];\n    params.chain = depositMatch[2] || 'arbitrum'; // default to Arbitrum\n  }\n} else if (lowerContent.includes('swap') || lowerContent.includes('convert') || lowerContent.includes('exchange')) {\n  intent = 'swap';\n  const swapMatch = lowerContent.match(/(\\d+(?:\\.\\d+)?)\\s*(usdc|eth|usdt)\\s*(?:to|for|into)\\s*(usdc|eth|usdt)/i);\n  if (swapMatch) {\n    params.amount = swapMatch[1];\n    params.fromToken = swapMatch[2].toUpperCase();\n    params.toToken = swapMatch[3].toUpperCase();\n  }\n} else if (lowerContent.includes('send') || lowerContent.includes('transfer')) {\n  intent = 'send';\n  const sendMatch = lowerContent.match(/(\\d+(?:\\.\\d+)?)\\s*(usdc|eth)\\s*(?:to)\\s*([\\w\\.]+)/i);\n  if (sendMatch) {\n    params.amount = sendMatch[1];\n    params.token = sendMatch[2].toUpperCase();\n    params.recipient = sendMatch[3];\n  }\n} else if (lowerContent.includes('balance') || lowerContent.includes('how much')) {\n  intent = 'balance';\n} else if (lowerContent.includes('price') || lowerContent.match(/^(eth|bitcoin|btc)\\s*\\??$/)) {\n  intent = 'price';\n  params.token = lowerContent.includes('btc') || lowerContent.includes('bitcoin') ? 'BTC' : 'ETH';\n} else if (lowerContent.includes('help') || lowerContent === '?') {\n  intent = 'help';\n} else if (lowerContent.match(/^(hi|hello|hey|gm|good morning)/)) {\n  intent = 'greeting';\n}\n\nreturn [{json: {...$input.first().json.body || $input.first().json, intent, params, originalContent: content}}];"
+      }
+    },
+    {
+      "id": "route-intent",
+      "name": "Route by Intent",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [650, 300],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "balance",
+              "conditions": {
+                "options": {"version": 2, "combinator": "and", "leftValue": "", "typeValidation": "strict", "caseSensitive": true},
+                "combinator": "and",
+                "conditions": [{"id": "balance-cond", "operator": {"type": "string", "operation": "equals"}, "leftValue": "={{ $json.intent }}", "rightValue": "balance"}]
+              }
+            },
+            {
+              "outputKey": "price",
+              "conditions": {
+                "options": {"version": 2, "combinator": "and", "leftValue": "", "typeValidation": "strict", "caseSensitive": true},
+                "combinator": "and",
+                "conditions": [{"id": "price-cond", "operator": {"type": "string", "operation": "equals"}, "leftValue": "={{ $json.intent }}", "rightValue": "price"}]
+              }
+            },
+            {
+              "outputKey": "swap",
+              "conditions": {
+                "options": {"version": 2, "combinator": "and", "leftValue": "", "typeValidation": "strict", "caseSensitive": true},
+                "combinator": "and",
+                "conditions": [{"id": "swap-cond", "operator": {"type": "string", "operation": "equals"}, "leftValue": "={{ $json.intent }}", "rightValue": "swap"}]
+              }
+            },
+            {
+              "outputKey": "deposit",
+              "conditions": {
+                "options": {"version": 2, "combinator": "and", "leftValue": "", "typeValidation": "strict", "caseSensitive": true},
+                "combinator": "and",
+                "conditions": [{"id": "deposit-cond", "operator": {"type": "string", "operation": "equals"}, "leftValue": "={{ $json.intent }}", "rightValue": "deposit"}]
+              }
+            },
+            {
+              "outputKey": "help",
+              "conditions": {
+                "options": {"version": 2, "combinator": "and", "leftValue": "", "typeValidation": "strict", "caseSensitive": true},
+                "combinator": "and",
+                "conditions": [{"id": "help-cond", "operator": {"type": "string", "operation": "equals"}, "leftValue": "={{ $json.intent }}", "rightValue": "help"}]
+              }
+            }
+          ]
+        },
+        "options": {"fallbackOutput": "extra"}
+      }
+    },
+    {
+      "id": "get-circle-balance",
+      "name": "Get Circle Balance",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [850, 100],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.CIRCLE_GATEWAY_URL }}/v1/balances",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{"name": "Content-Type", "value": "application/json"}]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"token\": \"USDC\",\n  \"sources\": [\n    { \"domain\": 0, \"depositor\": \"{{ $env.CIRCLE_TREASURY_ADDRESS }}\" },\n    { \"domain\": 3, \"depositor\": \"{{ $env.CIRCLE_TREASURY_ADDRESS }}\" },\n    { \"domain\": 6, \"depositor\": \"{{ $env.CIRCLE_TREASURY_ADDRESS }}\" }\n  ]\n}",
+        "options": {"response": {"response": {"neverError": true}}}
+      }
+    },
+    {
+      "id": "format-balance",
+      "name": "Format Balance Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 100],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const data = $input.first().json;\nconst author = $node['Parse Intent'].json.author?.displayName || 'there';\n\n// Check for errors\nif (data.error || (data.message && !data.balances)) {\n  return [{json: {reply: `Hey ${author}! Error fetching balance: ${data.message || data.error}`}}];\n}\n\n// Parse Circle Gateway response (new format: balance is string like \"1000.50\")\nconst balances = data.balances || [];\nlet totalUsdc = 0;\nconst chainBalances = [];\nconst domainNames = {0: 'Ethereum', 3: 'Arbitrum', 6: 'Base'};\n\nfor (const bal of balances) {\n  // New API returns 'balance' as formatted string (e.g., \"1000.50\")\n  const amount = parseFloat(bal.balance || bal.amount || '0');\n  totalUsdc += amount;\n  if (amount > 0) {\n    chainBalances.push(`${domainNames[bal.domain] || 'Chain ' + bal.domain}: $${amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`);\n  }\n}\n\nconst balanceList = chainBalances.length > 0 \n  ? chainBalances.join('\\n- ') \n  : 'No USDC balances found (deposit USDC to Gateway first)';\n\nconst totalFormatted = totalUsdc.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});\n\nreturn [{json: {reply: `Hey ${author}! Here's your treasury balance:\\n\\n**Total USDC: $${totalFormatted}**\\n- ${balanceList}\\n\\n_Powered by Circle Gateway_`}}];"
+      }
+    },
+    {
+      "id": "get-eth-price",
+      "name": "Get ETH Price",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [850, 250],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "=https://gateway.thegraph.com/api/{{ $env.GRAPH_API_KEY }}/subgraphs/id/{{ $env.GRAPH_SUBGRAPH_ARBITRUM }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{"name": "Content-Type", "value": "application/json"}]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"query\": \"{ bundles(first: 1) { ethPriceUSD } }\"}",
+        "options": {"response": {"response": {"neverError": true}}}
+      }
+    },
+    {
+      "id": "format-price",
+      "name": "Format Price Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 250],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const data = $input.first().json;\nconst ethPrice = parseFloat(data?.data?.bundles?.[0]?.ethPriceUSD || 0);\nif (ethPrice === 0) {\n  return [{json: {reply: 'Error fetching price'}}];\n}\nconst formatted = ethPrice.toLocaleString('en-US', {style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2});\nreturn [{json: {reply: `**ETH Price**: ${formatted}\\n\\n_Data from Uniswap v3 on Arbitrum via The Graph_`}}];"
+      }
+    },
+    {
+      "id": "format-swap",
+      "name": "Format Swap Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 400],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const params = $input.first().json.params || {};\nif (!params.amount || !params.fromToken || !params.toToken) {\n  return [{json: {reply: `I couldn't parse your swap request. Try: \"swap 100 USDC to ETH\"`}}];\n}\nreturn [{json: {reply: `**Swap Quote**\\n\\nFrom: ${params.amount} ${params.fromToken}\\nTo: ~${(params.amount / 3450).toFixed(4)} ${params.toToken}\\n\\nRoute: Uniswap v4 (same-chain)\\nEstimated fee: ~$0.50\\n\\n_Reply \"confirm\" to execute or \"cancel\" to abort_`}}];"
+      }
+    },
+    {
+      "id": "handle-deposit",
+      "name": "Handle Deposit",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 550],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const params = $input.first().json.params || {};\nconst author = $input.first().json.author?.displayName || 'there';\nconst executionMode = $env.EXECUTION_MODE || 'mock';\n\nif (!params.amount) {\n  return [{json: {reply: `I couldn't parse your deposit request. Try: \"deposit $100\" or \"deposit 50 on Base\"`}}];\n}\n\n// Map chain names to chain IDs\nconst chainIds = {\n  'ethereum': 1,\n  'arbitrum': 42161,\n  'base': 8453\n};\nconst chainNames = {\n  1: 'Ethereum',\n  42161: 'Arbitrum',\n  8453: 'Base'\n};\n\nconst chainName = (params.chain || 'arbitrum').toLowerCase();\nconst chainId = chainIds[chainName] || 42161;\nconst displayChain = chainNames[chainId];\n\nif (executionMode === 'mock') {\n  // Mock mode - return simulated response\n  const mockTxHash = '0xmock_' + Date.now().toString(16) + '_deposit';\n  return [{\n    json: {\n      reply: `**Deposit Simulated (Mock Mode)**\\n\\nAmount: $${params.amount} USDC\\nChain: ${displayChain}\\nTx Hash: \\`${mockTxHash}\\`\\n\\n_Switch to live mode for real deposits. Use the dashboard for wallet-based deposits._`\n    }\n  }];\n}\n\n// Live mode - would call Appwrite function here\n// For now, return instructions to use dashboard\nreturn [{\n  json: {\n    reply: `**Deposit Request**\\n\\nAmount: $${params.amount} USDC\\nChain: ${displayChain}\\n\\nTo deposit from your personal wallet, use the **Treasury Dashboard**:\\nhttps://treasury-agent.sites.smartpiggies.cloud\\n\\n_Dashboard deposits are signed with your wallet for security._`\n  }\n}];"
+      }
+    },
+    {
+      "id": "format-help",
+      "name": "Format Help Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 700],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{json: {reply: `**Treasury Agent Commands**\\n\\n**Check Balance**\\n\"What's our balance?\" or \"balance\"\\n\\n**Check Prices**\\n\"ETH price\" or \"What's the price of ETH?\"\\n\\n**Swap Tokens**\\n\"Swap 100 USDC to ETH\"\\n\\n**Deposit USDC**\\n\"Deposit $100\" or \"Deposit 50 on Base\"\\n\\n**Send Funds**\\n\"Send 50 USDC to vitalik.eth\"\\n\\n_Powered by Circle Gateway, Uniswap, and LI.FI_`}}];"
+      }
+    },
+    {
+      "id": "format-unknown",
+      "name": "Format Unknown Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 850],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const content = $input.first().json.originalContent || '';\nconst intent = $input.first().json.intent;\nif (intent === 'greeting') {\n  return [{json: {reply: `Hey! I'm Treasury Agent. I can help you check balances, prices, execute swaps, and deposit USDC. Try \"balance\" or \"help\" to get started!`}}];\n}\nreturn [{json: {reply: `I'm not sure what you mean by \"${content.substring(0, 50)}\"...\\n\\nTry \"help\" to see what I can do!`}}];"
+      }
+    },
+    {
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1250, 400],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      }
+    }
+  ],
+  "connections": {
+    "Discord Command Webhook": {
+      "main": [[{"node": "Parse Intent", "type": "main", "index": 0}]]
+    },
+    "Parse Intent": {
+      "main": [[{"node": "Route by Intent", "type": "main", "index": 0}]]
+    },
+    "Route by Intent": {
+      "main": [
+        [{"node": "Get Circle Balance", "type": "main", "index": 0}],
+        [{"node": "Get ETH Price", "type": "main", "index": 0}],
+        [{"node": "Format Swap Response", "type": "main", "index": 0}],
+        [{"node": "Handle Deposit", "type": "main", "index": 0}],
+        [{"node": "Format Help Response", "type": "main", "index": 0}],
+        [{"node": "Format Unknown Response", "type": "main", "index": 0}]
+      ]
+    },
+    "Get Circle Balance": {
+      "main": [[{"node": "Format Balance Response", "type": "main", "index": 0}]]
+    },
+    "Get ETH Price": {
+      "main": [[{"node": "Format Price Response", "type": "main", "index": 0}]]
+    },
+    "Format Balance Response": {
+      "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
+    },
+    "Format Price Response": {
+      "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
+    },
+    "Format Swap Response": {
+      "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
+    },
+    "Handle Deposit": {
+      "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
+    },
+    "Format Help Response": {
+      "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
+    },
+    "Format Unknown Response": {
+      "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "pinData": {}
+}

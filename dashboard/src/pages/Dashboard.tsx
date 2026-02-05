@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Card,
   CardContent,
@@ -9,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { formatCurrency, formatPercent } from '@/lib/utils';
 import { isAppwriteConfigured } from '@/lib/appwrite';
 import { isN8nConfigured } from '@/lib/api';
+import { DepositModal } from '@/components/deposit/DepositModal';
 import {
   Wallet,
   TrendingUp,
@@ -16,6 +18,7 @@ import {
   Activity,
   AlertTriangle,
   RefreshCw,
+  ArrowDownToLine,
 } from 'lucide-react';
 
 // Placeholder data for UI development
@@ -37,6 +40,7 @@ const mockData = {
 export function Dashboard() {
   const appwriteReady = isAppwriteConfigured();
   const n8nReady = isN8nConfigured();
+  const [depositModalOpen, setDepositModalOpen] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -188,6 +192,14 @@ export function Dashboard() {
             <CardDescription>Common treasury operations</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
+            <Button
+              className="w-full justify-start"
+              variant="default"
+              onClick={() => setDepositModalOpen(true)}
+            >
+              <ArrowDownToLine className="mr-2 h-4 w-4" />
+              Deposit USDC
+            </Button>
             <Button className="w-full justify-start" variant="outline">
               Request Swap
             </Button>
@@ -203,6 +215,9 @@ export function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Deposit Modal */}
+      <DepositModal open={depositModalOpen} onOpenChange={setDepositModalOpen} />
     </div>
   );
 }

@@ -1,0 +1,16 @@
+{
+  "name": "gateway-deposit",
+  "version": "1.0.0",
+  "description": "Appwrite function for depositing USDC to Circle Gateway",
+  "main": "src/main.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/main.js"
+  },
+  "dependencies": {
+    "ethers": "^6.9.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

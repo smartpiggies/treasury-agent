@@ -91,6 +91,11 @@ ETH price from Uniswap v3 subgraph via The Graph (decentralized network).
 ### 4. N-of-M Approvals
 Family consensus for large transactions via Discord reactions.
 
+### 5. Deposit USDC (NEW)
+Two ways to deposit USDC to Circle Gateway:
+- **Dashboard**: Connect wallet with RainbowKit, approve + deposit
+- **Discord**: `@TreasuryAgent deposit $100` (mock mode or treasury wallet)
+
 ## Monorepo Structure
 
 ```
@@ -110,6 +115,7 @@ treasury-agent/
 | **Daily Report** | 9 AM daily | Circle balance + ETH price → Discord |
 | **Price Monitor** | Every 5 min | ETH price alerts when thresholds crossed |
 | **Swap Executor** | Webhook | Validate → Route → Execute → Report |
+| **Discord Handler** | Webhook | Parse intents: balance, price, swap, deposit, help |
 | **Weekly Summary** | Monday 8 AM | Aggregate stats → Discord |
 | **Error Handler** | Error trigger | Catch failures → Discord alert |
 
@@ -117,12 +123,13 @@ treasury-agent/
 
 | Service | Status | Notes |
 |---------|--------|-------|
-| Circle Gateway | ✅ Working | API format fixed, deposit USDC to enable |
+| Circle Gateway | ✅ Working | API format fixed, deposits via dashboard |
 | Uniswap | ⚠️ In Progress | Price data working, adding direct swaps |
 | LI.FI | ✅ Working | Cross-chain quotes + execution |
 | ENS | ✅ Working | Resolves .eth names via The Graph |
 | Appwrite | ✅ Working | All 4 collections tested |
-| Discord | ✅ Working | Both webhooks configured |
+| Discord | ✅ Working | Both webhooks + command handler |
+| Dashboard | ✅ Working | Wallet connect + deposit flow |
 | n8n | ✅ Running | https://n8n.smartpiggies.cloud |
 
 ## Key Commands

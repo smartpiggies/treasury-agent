@@ -7,6 +7,7 @@ import {
   Settings,
   Wallet,
 } from 'lucide-react';
+import { ConnectButton } from '@/components/wallet/ConnectButton';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -49,10 +50,7 @@ export function Layout({ children }: LayoutProps) {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-4">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span className="h-2 w-2 rounded-full bg-green-500" />
-              Connected
-            </div>
+            <ConnectButton />
           </div>
         </div>
       </header>

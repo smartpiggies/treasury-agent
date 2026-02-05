@@ -5,6 +5,7 @@ interface ImportMetaEnv {
   readonly VITE_APPWRITE_PROJECT_ID: string;
   readonly VITE_APPWRITE_DATABASE_ID: string;
   readonly VITE_N8N_WEBHOOK_BASE: string;
+  readonly VITE_WALLETCONNECT_PROJECT_ID?: string;
 }
 
 interface ImportMeta {
