@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  discord-bot:
+    build: .
+    container_name: treasury-discord-bot
+    restart: unless-stopped
+    environment:
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
+      - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL:-https://n8n.smartpiggies.cloud/webhook/discord-cmd}
+      - ALLOWED_CHANNEL_IDS=${ALLOWED_CHANNEL_IDS:-}
+      - BOT_USER_ID=${BOT_USER_ID:-}
+    networks:
+      - n8n-network
+
+networks:
+  n8n-network:
+    external: true
+    name: n8n_default

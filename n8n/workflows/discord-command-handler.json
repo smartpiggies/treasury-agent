@@ -1,0 +1,401 @@
+{
+  "name": "Discord Command Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "event": "message",
+        "channelIds": [],
+        "botMention": true,
+        "pattern": "contain",
+        "value": "",
+        "placeholder": "Processing your request..."
+      },
+      "id": "discord-trigger",
+      "name": "Discord Trigger",
+      "type": "@kmcbride3/n8n-nodes-discord.discordTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "credentials": {
+        "discordApi": {
+          "id": "",
+          "name": "Discord App"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Parse Discord message to determine intent\nconst items = $input.all();\nconst message = items[0]?.json || {};\nconst content = (message.content || '').toLowerCase().trim();\n\n// Remove bot mention and clean up\nconst cleanContent = content\n  .replace(/<@!?\\d+>/g, '')  // Remove mentions\n  .replace(/\\s+/g, ' ')       // Normalize whitespace\n  .trim();\n\n// Parse intent\nlet intent = 'unknown';\nlet params = {};\n\n// Balance check\nif (cleanContent.match(/balance|how much|what.*have|status/i)) {\n  intent = 'balance';\n}\n// Swap request\nelse if (cleanContent.match(/swap|convert|exchange|buy|sell/i)) {\n  intent = 'swap';\n  \n  // Extract amount: \"swap $10 to ETH\" or \"swap 10 USDC to ETH\"\n  const amountMatch = cleanContent.match(/\\$?(\\d+(?:\\.\\d+)?)/i);\n  params.amount = amountMatch ? parseFloat(amountMatch[1]) : null;\n  \n  // Extract tokens\n  const toMatch = cleanContent.match(/to\\s+(\\w+)/i);\n  params.destToken = toMatch ? toMatch[1].toUpperCase() : 'ETH';\n  \n  // Source token (default USDC)\n  const fromMatch = cleanContent.match(/(usdc|eth|usdt)\\s+to/i);\n  params.sourceToken = fromMatch ? fromMatch[1].toUpperCase() : 'USDC';\n}\n// Transfer/move request\nelse if (cleanContent.match(/move|transfer|send|bridge/i)) {\n  intent = 'transfer';\n  \n  // Extract amount\n  const amountMatch = cleanContent.match(/\\$?(\\d+(?:\\.\\d+)?)/i);\n  params.amount = amountMatch ? parseFloat(amountMatch[1]) : null;\n  \n  // Extract destination chain\n  const chainMatch = cleanContent.match(/to\\s+(base|arbitrum|ethereum|optimism)/i);\n  params.destChain = chainMatch ? chainMatch[1].toLowerCase() : null;\n  \n  // Extract recipient (ENS or address)\n  const recipientMatch = cleanContent.match(/to\\s+([a-z0-9]+\\.eth|0x[a-fA-F0-9]{40})/i);\n  params.recipient = recipientMatch ? recipientMatch[1] : null;\n}\n// Help\nelse if (cleanContent.match(/help|what can you|commands/i)) {\n  intent = 'help';\n}\n// Price check\nelse if (cleanContent.match(/price|eth price|how much is/i)) {\n  intent = 'price';\n}\n\nreturn [{\n  json: {\n    intent,\n    params,\n    originalMessage: content,\n    cleanMessage: cleanContent,\n    userId: message.userId,\n    userName: message.userName,\n    channelId: message.channelId,\n    messageId: message.messageId,\n    placeholderId: message.placeholderId,\n  }\n}];"
+      },
+      "id": "parse-intent",
+      "name": "Parse Intent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+                "conditions": [{ "leftValue": "={{ $json.intent }}", "rightValue": "balance", "operator": { "type": "string", "operation": "equals" } }]
+              },
+              "renameOutput": true,
+              "outputKey": "balance"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+                "conditions": [{ "leftValue": "={{ $json.intent }}", "rightValue": "swap", "operator": { "type": "string", "operation": "equals" } }]
+              },
+              "renameOutput": true,
+              "outputKey": "swap"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+                "conditions": [{ "leftValue": "={{ $json.intent }}", "rightValue": "transfer", "operator": { "type": "string", "operation": "equals" } }]
+              },
+              "renameOutput": true,
+              "outputKey": "transfer"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+                "conditions": [{ "leftValue": "={{ $json.intent }}", "rightValue": "price", "operator": { "type": "string", "operation": "equals" } }]
+              },
+              "renameOutput": true,
+              "outputKey": "price"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+                "conditions": [{ "leftValue": "={{ $json.intent }}", "rightValue": "help", "operator": { "type": "string", "operation": "equals" } }]
+              },
+              "renameOutput": true,
+              "outputKey": "help"
+            }
+          ]
+        },
+        "options": { "fallbackOutput": "extra" }
+      },
+      "id": "router",
+      "name": "Route by Intent",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Fetch unified balance from Circle Gateway\nconst endpoint = $env.CIRCLE_GATEWAY_URL || 'https://gateway-api.circle.com';\nconst apiKey = $env.CIRCLE_API_KEY;\nconst address = $env.CIRCLE_TREASURY_ADDRESS;\n\nif (!apiKey || !address) {\n  return [{ json: { error: 'Circle Gateway not configured', balance: null, ...$input.first().json } }];\n}\n\ntry {\n  const response = await fetch(`${endpoint}/v1/balances`, {\n    method: 'POST',\n    headers: {\n      'Content-Type': 'application/json',\n      'Authorization': `Bearer ${apiKey}`,\n    },\n    body: JSON.stringify({\n      address: address,\n      sources: [\n        { domain: 0 },  // Ethereum\n        { domain: 3 },  // Arbitrum  \n        { domain: 6 },  // Base\n      ]\n    }),\n  });\n\n  const data = await response.json();\n  \n  // Parse balances\n  const chainNames = { 0: 'Ethereum', 3: 'Arbitrum', 6: 'Base' };\n  let totalUsdc = 0;\n  const breakdown = [];\n  \n  if (data.balances) {\n    for (const bal of data.balances) {\n      const amount = parseFloat(bal.amount || 0) / 1e6; // USDC has 6 decimals\n      totalUsdc += amount;\n      if (amount > 0) {\n        breakdown.push({\n          chain: chainNames[bal.domain] || `Chain ${bal.domain}`,\n          amount: amount.toFixed(2),\n        });\n      }\n    }\n  }\n\n  return [{\n    json: {\n      totalUsdc: totalUsdc.toFixed(2),\n      breakdown,\n      ...$input.first().json,\n    }\n  }];\n} catch (error) {\n  return [{ json: { error: error.message, ...$input.first().json } }];\n}"
+      },
+      "id": "get-balance",
+      "name": "Get Circle Balance",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, -200]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Fetch ETH price from The Graph\nconst apiKey = $env.GRAPH_API_KEY;\nconst subgraphId = $env.GRAPH_SUBGRAPH_ARBITRUM || '5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV';\n\nif (!apiKey) {\n  return [{ json: { error: 'Graph API not configured', ethPrice: null, ...$input.first().json } }];\n}\n\ntry {\n  const response = await fetch(\n    `https://gateway.thegraph.com/api/${apiKey}/subgraphs/id/${subgraphId}`,\n    {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({\n        query: '{ bundles(first: 1) { ethPriceUSD } }'\n      })\n    }\n  );\n\n  const data = await response.json();\n  const ethPrice = parseFloat(data?.data?.bundles?.[0]?.ethPriceUSD || 0);\n\n  return [{\n    json: {\n      ethPrice: ethPrice.toFixed(2),\n      ...$input.first().json,\n    }\n  }];\n} catch (error) {\n  return [{ json: { error: error.message, ethPrice: null, ...$input.first().json } }];\n}"
+      },
+      "id": "get-eth-price",
+      "name": "Get ETH Price",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [920, -200]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Format balance response for Discord\nconst data = $input.first().json;\n\nlet message = '';\n\nif (data.error) {\n  message = `Sorry, I couldn't fetch the balance right now. Error: ${data.error}`;\n} else {\n  const breakdown = data.breakdown || [];\n  const breakdownText = breakdown.length > 0 \n    ? breakdown.map(b => `  • $${b.amount} USDC on ${b.chain}`).join('\\n')\n    : '  (No balances found - deposit USDC to get started)';\n  \n  const ethPrice = data.ethPrice ? `\\n\\nETH Price: $${data.ethPrice}` : '';\n  \n  message = `Here's your treasury balance:\\n\\n💰 **Total: $${data.totalUsdc} USDC**\\n\\nBreakdown:\\n${breakdownText}${ethPrice}\\n\\nEverything looks good!`;\n}\n\nreturn [{ json: { message, channelId: data.channelId, placeholderId: data.placeholderId } }];"
+      },
+      "id": "format-balance",
+      "name": "Format Balance Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1140, -200]
+    },
+    {
+      "parameters": {
+        "content": "={{ $json.message }}",
+        "options": {}
+      },
+      "id": "send-balance",
+      "name": "Send Balance",
+      "type": "@kmcbride3/n8n-nodes-discord.discord",
+      "typeVersion": 1,
+      "position": [1360, -200],
+      "credentials": {
+        "discordApi": {
+          "id": "",
+          "name": "Discord App"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Handle swap request - check threshold and either auto-execute or request approval\nconst data = $input.first().json;\nconst params = data.params || {};\nconst AUTO_EXECUTE_THRESHOLD = 25; // Auto-execute swaps under $25\n\nif (!params.amount) {\n  return [{\n    json: {\n      needsApproval: false,\n      error: true,\n      message: `I couldn't understand the amount. Try: \"@PigAiBank swap $10 to ETH\"`,\n      ...data\n    }\n  }];\n}\n\nconst amount = params.amount;\nconst sourceToken = params.sourceToken || 'USDC';\nconst destToken = params.destToken || 'ETH';\n\n// Determine if needs approval\nconst needsApproval = amount >= AUTO_EXECUTE_THRESHOLD;\n\nlet message;\nif (needsApproval) {\n  message = `This swap is over $${AUTO_EXECUTE_THRESHOLD}, so I need approval.\\n\\n` +\n    `📋 **Pending Swap**\\n` +\n    `━━━━━━━━━━━━━━━━━━\\n` +\n    `**Amount:** $${amount} ${sourceToken} → ${destToken}\\n` +\n    `**Requested by:** ${data.userName}\\n\\n` +\n    `Reply ✅ to approve or ❌ to reject`;\n} else {\n  message = `Got it! $${amount} is under the auto-approve limit.\\n\\nSwapping $${amount} ${sourceToken} → ${destToken}...`;\n}\n\nreturn [{\n  json: {\n    needsApproval,\n    autoExecute: !needsApproval,\n    amount,\n    sourceToken,\n    destToken,\n    message,\n    ...data\n  }\n}];"
+      },
+      "id": "handle-swap",
+      "name": "Handle Swap",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, -50]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            { "id": "auto-execute", "leftValue": "={{ $json.autoExecute }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-auto-execute",
+      "name": "Auto Execute?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [920, -50]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.smartpiggies.cloud/webhook/swap-executor",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"sourceChain\": \"arbitrum\",\n  \"destChain\": \"arbitrum\",\n  \"sourceToken\": \"{{ $json.sourceToken }}\",\n  \"destToken\": \"{{ $json.destToken }}\",\n  \"amount\": \"{{ $json.amount }}\",\n  \"requester\": \"{{ $json.userName }}\",\n  \"discordUserId\": \"{{ $json.userId }}\"\n}",
+        "options": {}
+      },
+      "id": "call-swap-executor",
+      "name": "Call Swap Executor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1140, -100]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Format swap result\nconst swapResult = $input.first().json;\nconst prevData = $('Handle Swap').first().json;\n\nlet message;\nif (swapResult.success) {\n  message = `Done! ✓\\n\\n` +\n    `Swapped $${prevData.amount} ${prevData.sourceToken} → ${prevData.destToken}\\n` +\n    `Route: ${swapResult.route || 'uniswap'}\\n` +\n    `${swapResult.mocked ? '(Mock mode - no real transaction)' : `Tx: ${swapResult.txHash}`}`;\n} else {\n  message = `Swap created but pending confirmation.\\n\\n` +\n    `Execution ID: \\`${swapResult.executionId}\\`\\n` +\n    `Route: ${swapResult.route}`;\n}\n\nreturn [{ json: { message, channelId: prevData.channelId, placeholderId: prevData.placeholderId } }];"
+      },
+      "id": "format-swap-result",
+      "name": "Format Swap Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1360, -100]
+    },
+    {
+      "parameters": {
+        "content": "={{ $json.message }}",
+        "options": {}
+      },
+      "id": "send-swap-result",
+      "name": "Send Swap Result",
+      "type": "@kmcbride3/n8n-nodes-discord.discord",
+      "typeVersion": 1,
+      "position": [1580, -100],
+      "credentials": {
+        "discordApi": {
+          "id": "",
+          "name": "Discord App"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "={{ $json.message }}",
+        "options": {}
+      },
+      "id": "send-approval-request",
+      "name": "Send Approval Request",
+      "type": "@kmcbride3/n8n-nodes-discord.discord",
+      "typeVersion": 1,
+      "position": [1140, 0],
+      "credentials": {
+        "discordApi": {
+          "id": "",
+          "name": "Discord App"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Handle transfer/bridge request\nconst data = $input.first().json;\nconst params = data.params || {};\n\nif (!params.amount) {\n  return [{\n    json: {\n      message: `I couldn't understand the amount. Try: \"@PigAiBank move $20 to Base\"`,\n      ...data\n    }\n  }];\n}\n\nlet message;\nif (params.destChain) {\n  message = `Moving $${params.amount} USDC to ${params.destChain.charAt(0).toUpperCase() + params.destChain.slice(1)}...\\n\\n` +\n    `Using Circle Gateway - this should be instant (<500ms).`;\n} else if (params.recipient) {\n  message = `Sending $${params.amount} to ${params.recipient}...\\n\\n` +\n    `Resolving address and preparing transfer.`;\n} else {\n  message = `I couldn't determine where to send the funds.\\n\\n` +\n    `Try: \"@PigAiBank move $20 to Base\" or \"@PigAiBank send $50 to vitalik.eth\"`;\n}\n\nreturn [{ json: { message, ...data } }];"
+      },
+      "id": "handle-transfer",
+      "name": "Handle Transfer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 50]
+    },
+    {
+      "parameters": {
+        "content": "={{ $json.message }}",
+        "options": {}
+      },
+      "id": "send-transfer",
+      "name": "Send Transfer",
+      "type": "@kmcbride3/n8n-nodes-discord.discord",
+      "typeVersion": 1,
+      "position": [920, 50],
+      "credentials": {
+        "discordApi": {
+          "id": "",
+          "name": "Discord App"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Format help message\nconst data = $input.first().json;\n\nconst message = `Hi ${data.userName || 'there'}! Here's what I can do:\\n\\n` +\n  `💰 **Check Balance**\\n` +\n  `   \"@PigAiBank what's our balance?\"\\n\\n` +\n  `💱 **Swap Tokens** (under $25 auto-executes)\\n` +\n  `   \"@PigAiBank swap $10 to ETH\"\\n` +\n  `   \"@PigAiBank convert $50 USDC to ETH\"\\n\\n` +\n  `🌉 **Transfer/Bridge**\\n` +\n  `   \"@PigAiBank move $20 to Base\"\\n` +\n  `   \"@PigAiBank send $100 to vitalik.eth\"\\n\\n` +\n  `📊 **Price Check**\\n` +\n  `   \"@PigAiBank what's the ETH price?\"\\n\\n` +\n  `Just chat naturally - I'll figure out what you need!`;\n\nreturn [{ json: { message, channelId: data.channelId, placeholderId: data.placeholderId } }];"
+      },
+      "id": "format-help",
+      "name": "Format Help",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 200]
+    },
+    {
+      "parameters": {
+        "content": "={{ $json.message }}",
+        "options": {}
+      },
+      "id": "send-help",
+      "name": "Send Help",
+      "type": "@kmcbride3/n8n-nodes-discord.discord",
+      "typeVersion": 1,
+      "position": [920, 200],
+      "credentials": {
+        "discordApi": {
+          "id": "",
+          "name": "Discord App"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Fetch ETH price for price command\nconst apiKey = $env.GRAPH_API_KEY;\nconst subgraphId = $env.GRAPH_SUBGRAPH_ARBITRUM;\n\nconst data = $input.first().json;\n\ntry {\n  const response = await fetch(\n    `https://gateway.thegraph.com/api/${apiKey}/subgraphs/id/${subgraphId}`,\n    {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({\n        query: '{ bundles(first: 1) { ethPriceUSD } }'\n      })\n    }\n  );\n\n  const result = await response.json();\n  const ethPrice = parseFloat(result?.data?.bundles?.[0]?.ethPriceUSD || 0);\n\n  const message = `📊 **ETH Price: $${ethPrice.toFixed(2)}**\\n\\nData from Uniswap v3 via The Graph.`;\n  \n  return [{ json: { message, channelId: data.channelId, placeholderId: data.placeholderId } }];\n} catch (error) {\n  return [{ json: { message: `Couldn't fetch price: ${error.message}`, channelId: data.channelId } }];\n}"
+      },
+      "id": "get-price",
+      "name": "Get Price",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 150]
+    },
+    {
+      "parameters": {
+        "content": "={{ $json.message }}",
+        "options": {}
+      },
+      "id": "send-price",
+      "name": "Send Price",
+      "type": "@kmcbride3/n8n-nodes-discord.discord",
+      "typeVersion": 1,
+      "position": [920, 150],
+      "credentials": {
+        "discordApi": {
+          "id": "",
+          "name": "Discord App"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Handle unknown command\nconst data = $input.first().json;\n\nconst message = `I'm not sure what you meant by \"${data.cleanMessage}\".\\n\\nTry asking me about your **balance**, to **swap** tokens, or type **help** to see all commands!`;\n\nreturn [{ json: { message, channelId: data.channelId, placeholderId: data.placeholderId } }];"
+      },
+      "id": "format-unknown",
+      "name": "Format Unknown",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "content": "={{ $json.message }}",
+        "options": {}
+      },
+      "id": "send-unknown",
+      "name": "Send Unknown",
+      "type": "@kmcbride3/n8n-nodes-discord.discord",
+      "typeVersion": 1,
+      "position": [920, 300],
+      "credentials": {
+        "discordApi": {
+          "id": "",
+          "name": "Discord App"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Discord Trigger": {
+      "main": [[{ "node": "Parse Intent", "type": "main", "index": 0 }]]
+    },
+    "Parse Intent": {
+      "main": [[{ "node": "Route by Intent", "type": "main", "index": 0 }]]
+    },
+    "Route by Intent": {
+      "main": [
+        [{ "node": "Get Circle Balance", "type": "main", "index": 0 }],
+        [{ "node": "Handle Swap", "type": "main", "index": 0 }],
+        [{ "node": "Handle Transfer", "type": "main", "index": 0 }],
+        [{ "node": "Get Price", "type": "main", "index": 0 }],
+        [{ "node": "Format Help", "type": "main", "index": 0 }],
+        [{ "node": "Format Unknown", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Circle Balance": {
+      "main": [[{ "node": "Get ETH Price", "type": "main", "index": 0 }]]
+    },
+    "Get ETH Price": {
+      "main": [[{ "node": "Format Balance Response", "type": "main", "index": 0 }]]
+    },
+    "Format Balance Response": {
+      "main": [[{ "node": "Send Balance", "type": "main", "index": 0 }]]
+    },
+    "Handle Swap": {
+      "main": [[{ "node": "Auto Execute?", "type": "main", "index": 0 }]]
+    },
+    "Auto Execute?": {
+      "main": [
+        [{ "node": "Call Swap Executor", "type": "main", "index": 0 }],
+        [{ "node": "Send Approval Request", "type": "main", "index": 0 }]
+      ]
+    },
+    "Call Swap Executor": {
+      "main": [[{ "node": "Format Swap Result", "type": "main", "index": 0 }]]
+    },
+    "Format Swap Result": {
+      "main": [[{ "node": "Send Swap Result", "type": "main", "index": 0 }]]
+    },
+    "Handle Transfer": {
+      "main": [[{ "node": "Send Transfer", "type": "main", "index": 0 }]]
+    },
+    "Format Help": {
+      "main": [[{ "node": "Send Help", "type": "main", "index": 0 }]]
+    },
+    "Get Price": {
+      "main": [[{ "node": "Send Price", "type": "main", "index": 0 }]]
+    },
+    "Format Unknown": {
+      "main": [[{ "node": "Send Unknown", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "pinData": {}
+}
