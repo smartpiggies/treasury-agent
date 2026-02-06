@@ -4,6 +4,12 @@ import { getDefaultConfig } from "@rainbow-me/rainbowkit";
 
 const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "";
 
+if (!projectId) {
+  console.warn(
+    "WalletConnect project ID is not set. Wallet functionality may be limited.",
+  );
+}
+
 export const config = getDefaultConfig({
   appName: "PigAiBank",
   projectId,
