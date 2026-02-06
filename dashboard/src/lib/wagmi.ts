@@ -1,11 +1,11 @@
-import { http } from 'wagmi';
-import { arbitrum, base, mainnet } from 'wagmi/chains';
-import { getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { http } from "wagmi";
+import { arbitrum, base, mainnet } from "wagmi/chains";
+import { getDefaultConfig } from "@rainbow-me/rainbowkit";
 
-const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '';
+const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "";
 
 export const config = getDefaultConfig({
-  appName: 'PigAiBank',
+  appName: "PigAiBank",
   projectId,
   chains: [arbitrum, base, mainnet],
   transports: {
