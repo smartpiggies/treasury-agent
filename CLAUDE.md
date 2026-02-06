@@ -147,6 +147,110 @@ npm run workflows:import   # Import to n8n
 npm run test:all           # Run all integration tests
 ```
 
+## Self-Hosted Infrastructure
+
+Everything runs on a single Hostinger VPS (`aw.smartpiggies.cloud`). Both Appwrite and n8n are self-hosted via Docker.
+
+**Credentials and secrets are stored on the server**, not in this repo:
+- **n8n secrets** → `/root/n8n/docker-compose.yml` (environment variables section)
+- **Appwrite config** → Appwrite console or CLI
+- **SSH access** → `ssh root@aw.smartpiggies.cloud`
+
+See `n8n/CLAUDE.md` for the full n8n environment variable reference.
+
+### Appwrite CLI Setup
+
+Install the CLI and connect to our self-hosted instance:
+
+```bash
+# Install globally
+npm install -g appwrite-cli
+
+# Login to our self-hosted Appwrite
+appwrite login --endpoint https://aw.smartpiggies.cloud/v1
+
+# Initialize project config in the repo (select the treasury project)
+appwrite init project
+```
+
+Once connected, useful commands:
+```bash
+appwrite databases list                    # List databases
+appwrite databases listCollections --database-id treasury  # List collections
+appwrite functions list                    # List serverless functions
+appwrite deploy                            # Deploy functions/sites
+```
+
+### Appwrite Sites (Dashboard Hosting)
+
+The dashboard is hosted on Appwrite Sites and auto-deploys when you push to the connected GitHub repo.
+
+- **Console**: https://aw.smartpiggies.cloud/console → Sites section
+- **Live URL**: https://treasury-agent.sites.smartpiggies.cloud
+
+```bash
+# List all sites
+appwrite sites list
+
+# Get site details
+appwrite sites get --site-id <SITE_ID>
+
+# List deployments
+appwrite sites listDeployments --site-id <SITE_ID>
+
+# Create a new deployment (upload code)
+appwrite sites createDeployment --site-id <SITE_ID>
+
+# Trigger a rebuild from VCS (GitHub)
+appwrite sites createVcsDeployment --site-id <SITE_ID> --branch main
+
+# Set the active deployment
+appwrite sites updateSiteDeployment --site-id <SITE_ID> --deployment-id <DEPLOY_ID>
+
+# Environment variables (VITE_* build-time vars like VITE_WALLETCONNECT_PROJECT_ID)
+appwrite sites listVariables --site-id <SITE_ID>
+appwrite sites createVariable --site-id <SITE_ID> --key VITE_KEY_NAME --value "value"
+appwrite sites updateVariable --site-id <SITE_ID> --variable-id <VAR_ID> --key VITE_KEY_NAME --value "new-value"
+appwrite sites deleteVariable --site-id <SITE_ID> --variable-id <VAR_ID>
+
+# View logs
+appwrite sites listLogs --site-id <SITE_ID>
+```
+
+### n8n CLI (Self-Hosted)
+
+No installation needed - the CLI is built into the Docker image:
+
+```bash
+ssh root@aw.smartpiggies.cloud "docker exec n8n n8n <command>"
+```
+
+| Command | Description |
+|---------|-------------|
+| `n8n list:workflow` | List all workflows (ID\|Name) |
+| `n8n export:workflow --all` | Export all workflows as JSON |
+| `n8n export:workflow --id=<ID>` | Export a specific workflow |
+| `n8n import:workflow --input=<file>` | Import workflow from JSON file |
+| `n8n export:credentials --all` | Export all credentials (encrypted) |
+| `n8n import:credentials --input=<file>` | Import credentials |
+| `n8n update:workflow --id=<ID> --active=true` | Activate/deactivate a workflow |
+| `n8n execute --id=<ID>` | Execute a workflow directly |
+
+**Examples:**
+```bash
+# List all workflows
+ssh root@aw.smartpiggies.cloud "docker exec n8n n8n list:workflow"
+
+# Export a specific workflow to local machine
+ssh root@aw.smartpiggies.cloud "docker exec n8n n8n export:workflow --id=gjZOrYxJ1JiZhA6a" > workflow.json
+
+# Import a workflow (copy file to container first)
+scp workflow.json root@aw.smartpiggies.cloud:/tmp/
+ssh root@aw.smartpiggies.cloud "docker cp /tmp/workflow.json n8n:/tmp/ && docker exec n8n n8n import:workflow --input=/tmp/workflow.json"
+```
+
+**Note:** The n8n container name is `n8n`. For worker operations use `n8n-worker`.
+
 ## Environment Variables
 
 See `.env.example` for full list. Key groups:
