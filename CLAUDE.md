@@ -1,5 +1,7 @@
 # Treasury Agent - Claude Code Context
 
+> **This is a PUBLIC repository.** Never commit secrets, private keys, API keys, passwords, or credentials. All secrets live on the server (see [Self-Hosted Infrastructure](#self-hosted-infrastructure)).
+
 ## Project Overview
 
 **Treasury Agent** is a Discord-native AI that manages crypto for families, teams, and small organizations through conversation. Built for EthGlobal HackMoney 2026.
