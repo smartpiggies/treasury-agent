@@ -247,7 +247,7 @@ docker exec n8n env | grep -E "(EXECUTION|GRAPH|DISCORD|APPWRITE|CIRCLE)"
 // HTTP Request node configuration
 // URL: {{$env.CIRCLE_GATEWAY_URL}}/v1/balances
 // Method: POST
-// Headers: Content-Type: application/json (NO Authorization header needed)
+// Headers: Content-Type: application/json, Authorization: Bearer {{$env.CIRCLE_API_KEY}}
 // Body:
 {
   "token": "USDC",

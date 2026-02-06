@@ -28,6 +28,10 @@
             {
               "name": "Content-Type",
               "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.CIRCLE_API_KEY }}"
             }
           ]
         },
@@ -113,7 +117,7 @@
         "url": "={{ $env.DISCORD_WEBHOOK_REPORTS }}",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"embeds\": [{\n    \"title\": \"{{ $json.title }}\",\n    \"description\": \"{{ $json.date }}\",\n    \"color\": 3447003,\n    \"fields\": [\n      {\n        \"name\": \"Total USDC Balance\",\n        \"value\": \"{{ $json.totalBalance }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"ETH Price\",\n        \"value\": \"{{ $json.ethPrice }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Chain Breakdown\",\n        \"value\": \"```{{ $json.chainBreakdown }}```\"\n      }\n    ],\n    \"footer\": {\n      \"text\": \"Treasury Ops Bot | Data: Circle Gateway + The Graph\"\n    },\n    \"timestamp\": \"{{ $json.timestamp }}\"\n  }]\n}",
+        "jsonBody": "={\n  \"embeds\": [{\n    \"title\": \"{{ $json.title }}\",\n    \"description\": \"{{ $json.date }}\",\n    \"color\": 3447003,\n    \"fields\": [\n      {\n        \"name\": \"Total USDC Balance\",\n        \"value\": \"{{ $json.totalBalance }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"ETH Price\",\n        \"value\": \"{{ $json.ethPrice }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Chain Breakdown\",\n        \"value\": \"```{{ $json.chainBreakdown }}```\"\n      }\n    ],\n    \"footer\": {\n      \"text\": \"PigAiBank | Data: Circle Gateway + The Graph\"\n    },\n    \"timestamp\": \"{{ $json.timestamp }}\"\n  }]\n}",
         "options": {
           "response": {
             "response": {

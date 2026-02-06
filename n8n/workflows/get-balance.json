@@ -25,6 +25,10 @@
             {
               "name": "Content-Type",
               "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.CIRCLE_API_KEY }}"
             }
           ]
         },
