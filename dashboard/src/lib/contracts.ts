@@ -60,7 +60,7 @@ export const ERC20_ABI = [
   },
 ] as const;
 
-// Circle Gateway Wallet ABI (deposit)
+// Circle Gateway Wallet ABI (deposit + balance queries)
 export const GATEWAY_WALLET_ABI = [
   {
     name: 'deposit',
@@ -71,6 +71,26 @@ export const GATEWAY_WALLET_ABI = [
       { name: 'value', type: 'uint256' },
     ],
     outputs: [],
+  },
+  {
+    name: 'totalBalance',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'token', type: 'address' },
+      { name: 'depositor', type: 'address' },
+    ],
+    outputs: [{ type: 'uint256' }],
+  },
+  {
+    name: 'availableBalance',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'token', type: 'address' },
+      { name: 'depositor', type: 'address' },
+    ],
+    outputs: [{ type: 'uint256' }],
   },
 ] as const;
 

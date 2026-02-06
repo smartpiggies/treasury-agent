@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAccount } from 'wagmi';
 import {
   Card,
   CardContent,
@@ -24,6 +25,7 @@ import {
 } from '@/lib/api';
 import { DepositModal } from '@/components/deposit/DepositModal';
 import { SwapModal } from '@/components/swap/SwapModal';
+import { useGatewayBalance } from '@/hooks/useGatewayBalance';
 import {
   Wallet,
   TrendingUp,
@@ -47,8 +49,10 @@ type Notification = {
 
 export function Dashboard() {
   const navigate = useNavigate();
+  const { isConnected } = useAccount();
   const appwriteReady = isAppwriteConfigured();
   const n8nReady = isN8nConfigured();
+  const gateway = useGatewayBalance();
   const [depositModalOpen, setDepositModalOpen] = useState(false);
   const [swapModalOpen, setSwapModalOpen] = useState(false);
   const [treasuryData, setTreasuryData] = useState<TreasuryBalance | null>(null);
@@ -135,14 +139,22 @@ export function Dashboard() {
     }
   };
 
-  // Compute chain breakdown with percentages
-  const chainBreakdown = treasuryData?.chains.map((chain) => ({
-    chain: chain.chain,
-    balance: chain.balance_usd,
-    percent: treasuryData.total_usd > 0
-      ? (chain.balance_usd / treasuryData.total_usd) * 100
-      : 0,
-  })) || [];
+  // Compute chain breakdown with percentages (prefer on-chain Gateway data when wallet connected)
+  const chainBreakdown = isConnected
+    ? gateway.chains
+        .filter((c) => c.balanceUsd > 0)
+        .map((c) => ({
+          chain: c.chain,
+          balance: c.balanceUsd,
+          percent: gateway.totalUsd > 0 ? (c.balanceUsd / gateway.totalUsd) * 100 : 0,
+        }))
+    : treasuryData?.chains.map((chain) => ({
+        chain: chain.chain,
+        balance: chain.balance_usd,
+        percent: treasuryData.total_usd > 0
+          ? (chain.balance_usd / treasuryData.total_usd) * 100
+          : 0,
+      })) || [];
 
   return (
     <div className="space-y-6">
@@ -186,8 +198,9 @@ export function Dashboard() {
           onClick={() => {
             fetchTreasuryData();
             fetchAppwriteCounts();
+            gateway.refetch();
           }}
-          disabled={isLoading || !n8nReady}
+          disabled={isLoading && !isConnected}
         >
           {isLoading ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -240,19 +253,23 @@ export function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Balance</CardTitle>
+            <CardTitle className="text-sm font-medium">Gateway Balance</CardTitle>
             <Wallet className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {isLoading ? (
+              {isConnected && gateway.isLoading ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : isConnected ? (
+                formatCurrency(gateway.totalUsd)
+              ) : isLoading ? (
                 <Loader2 className="h-6 w-6 animate-spin" />
               ) : (
                 formatCurrency(treasuryData?.total_usd ?? 0)
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              USDC across all chains
+              {isConnected ? 'Your USDC in Circle Gateway' : 'Connect wallet for live balance'}
             </p>
           </CardContent>
         </Card>
@@ -321,7 +338,7 @@ export function Dashboard() {
             <CardDescription>USDC distribution via Circle Gateway</CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
+            {(isConnected ? gateway.isLoading : isLoading) ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
