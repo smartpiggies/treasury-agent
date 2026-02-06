@@ -58,6 +58,7 @@ export function Dashboard() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
   const [alertCount, setAlertCount] = useState(0);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const fetchTreasuryData = useCallback(async () => {
     if (!n8nReady) return;
@@ -68,6 +69,7 @@ export function Dashboard() {
     try {
       const data = await getBalance();
       setTreasuryData(data);
+      setLastUpdated(new Date());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch balance');
     } finally {
@@ -172,7 +174,13 @@ export function Dashboard() {
             Treasury overview and quick actions
           </p>
         </div>
-        <Button
+        <div className="flex items-center gap-4">
+          {lastUpdated && (
+            <span className="text-xs text-muted-foreground">
+              Updated {lastUpdated.toLocaleTimeString()}
+            </span>
+          )}
+          <Button
           variant="outline"
           size="sm"
           onClick={() => {
@@ -188,6 +196,7 @@ export function Dashboard() {
           )}
           Refresh
         </Button>
+        </div>
       </div>
 
       {/* Notification display */}
