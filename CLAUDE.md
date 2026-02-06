@@ -270,6 +270,20 @@ ssh root@aw.smartpiggies.cloud "docker cp /tmp/workflow.json n8n:/tmp/ && docker
 
 **Note:** The n8n container name is `n8n`. For worker operations use `n8n-worker`.
 
+**Important:** The CLI `import:workflow --id=X` does NOT overwrite existing workflows. To update a workflow, you must delete it from Postgres first, then import fresh. See the n8n-mcp note below.
+
+### n8n MCP & Skills
+
+When the **n8n-mcp** MCP server and **n8n-skills** are installed, prefer using them over the CLI for workflow operations — especially for tasks the CLI can't do well:
+
+- **Updating workflows in-place** (the CLI can't overwrite; the MCP/API can)
+- **Reading execution results and errors** (CLI has no access to execution details)
+- **Validating workflow JSON** before deploying
+- **Searching for nodes** and getting node configuration help
+- **Creating/editing workflows programmatically** via the n8n REST API
+
+Use `ToolSearch` to check if n8n-mcp tools are available (e.g. `n8n_update_full_workflow`, `n8n_get_workflow`, `n8n_validate_workflow`). Also check for n8n-skills via the Skill tool for Code node authoring help (`n8n-code-javascript`, `n8n-expression-syntax`, `n8n-workflow-patterns`, etc.).
+
 ## Environment Variables
 
 See `.env.example` for full list. Key groups:
