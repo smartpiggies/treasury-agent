@@ -2,7 +2,8 @@ import { PiggyBank } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const navLinks = [
-  { path: "/", label: "Dashboard" },
+  { path: "/", label: "Home" },
+  { path: "/dashboard", label: "Dashboard" },
   { path: "/analytics", label: "Analytics" },
   { path: "/history", label: "History" },
   { path: "/settings", label: "Settings" },
@@ -60,12 +61,12 @@ export function Footer() {
         <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-12">
           {/* Brand column */}
           <div className="md:col-span-1 lg:col-span-4">
-            <div className="flex items-center gap-3">
+            <Link to="/" className="flex items-center gap-3 hover:text-primary transition-colors">
               <PiggyBank />
               <span className="text-lg font-semibold tracking-tight">
                 PigAiBank
               </span>
-            </div>
+            </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
               Chain-abstracted treasury management for families & teams. Built
               for the next generation of collaborative finance.
