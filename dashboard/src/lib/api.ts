@@ -60,15 +60,19 @@ export async function requestSwap(params: SwapRequest): Promise<{
   });
 }
 
-export async function getBalance(): Promise<{
+export interface TreasuryBalance {
   total_usd: number;
+  eth_price: number;
+  timestamp: string;
   chains: Array<{
     chain: string;
     token: string;
     balance: string;
     balance_usd: number;
   }>;
-}> {
+}
+
+export async function getBalance(): Promise<TreasuryBalance> {
   return fetchApi('/get-balance', { method: 'POST' });
 }
 

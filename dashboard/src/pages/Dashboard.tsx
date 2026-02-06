@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Card,
   CardContent,
@@ -7,40 +8,107 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { formatCurrency, formatPercent } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 import { isAppwriteConfigured } from '@/lib/appwrite';
-import { isN8nConfigured } from '@/lib/api';
+import {
+  isN8nConfigured,
+  getBalance,
+  triggerDailyReport,
+  type TreasuryBalance,
+} from '@/lib/api';
 import { DepositModal } from '@/components/deposit/DepositModal';
+import { SwapModal } from '@/components/swap/SwapModal';
 import {
   Wallet,
   TrendingUp,
-  TrendingDown,
   Activity,
   AlertTriangle,
   RefreshCw,
   ArrowDownToLine,
+  Loader2,
+  ArrowLeftRight,
+  FileText,
+  DollarSign,
+  ClipboardList,
+  CheckCircle,
+  XCircle,
 } from 'lucide-react';
 
-// Placeholder data for UI development
-const mockData = {
-  totalBalance: 125000,
-  change24h: 2.5,
-  ethPrice: 3250.42,
-  ethChange: -1.2,
-  pendingExecutions: 2,
-  activeAlerts: 1,
-  chains: [
-    { chain: 'Ethereum', balance: 50000, percent: 40 },
-    { chain: 'Arbitrum', balance: 35000, percent: 28 },
-    { chain: 'Base', balance: 25000, percent: 20 },
-    { chain: 'Polygon', balance: 15000, percent: 12 },
-  ],
-};
+type Notification = {
+  type: 'success' | 'error';
+  message: string;
+} | null;
 
 export function Dashboard() {
+  const navigate = useNavigate();
   const appwriteReady = isAppwriteConfigured();
   const n8nReady = isN8nConfigured();
   const [depositModalOpen, setDepositModalOpen] = useState(false);
+  const [swapModalOpen, setSwapModalOpen] = useState(false);
+  const [treasuryData, setTreasuryData] = useState<TreasuryBalance | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notification, setNotification] = useState<Notification>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  const fetchTreasuryData = useCallback(async () => {
+    if (!n8nReady) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const data = await getBalance();
+      setTreasuryData(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch balance');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [n8nReady]);
+
+  useEffect(() => {
+    fetchTreasuryData();
+  }, [fetchTreasuryData]);
+
+  // Clear notification after 5 seconds
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  const handleTriggerDailyReport = async () => {
+    setActionLoading('daily-report');
+    try {
+      await triggerDailyReport();
+      setNotification({ type: 'success', message: 'Daily report triggered! Check Discord.' });
+    } catch (err) {
+      setNotification({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to trigger report',
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCheckPrices = async () => {
+    await fetchTreasuryData();
+    if (!error) {
+      setNotification({ type: 'success', message: 'Prices refreshed!' });
+    }
+  };
+
+  // Compute chain breakdown with percentages
+  const chainBreakdown = treasuryData?.chains.map((chain) => ({
+    chain: chain.chain,
+    balance: chain.balance_usd,
+    percent: treasuryData.total_usd > 0
+      ? (chain.balance_usd / treasuryData.total_usd) * 100
+      : 0,
+  })) || [];
 
   return (
     <div className="space-y-6">
@@ -72,11 +140,57 @@ export function Dashboard() {
             Treasury overview and quick actions
           </p>
         </div>
-        <Button variant="outline" size="sm">
-          <RefreshCw className="mr-2 h-4 w-4" />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={fetchTreasuryData}
+          disabled={isLoading || !n8nReady}
+        >
+          {isLoading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="mr-2 h-4 w-4" />
+          )}
           Refresh
         </Button>
       </div>
+
+      {/* Notification display */}
+      {notification && (
+        <Card
+          className={
+            notification.type === 'success'
+              ? 'border-green-500 bg-green-50 dark:bg-green-950'
+              : 'border-red-500 bg-red-50 dark:bg-red-950'
+          }
+        >
+          <CardContent className="flex items-center gap-2 pt-4 text-sm">
+            {notification.type === 'success' ? (
+              <CheckCircle className="h-4 w-4 text-green-600" />
+            ) : (
+              <XCircle className="h-4 w-4 text-red-600" />
+            )}
+            <span
+              className={
+                notification.type === 'success'
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-red-600 dark:text-red-400'
+              }
+            >
+              {notification.message}
+            </span>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Error display */}
+      {error && !notification && (
+        <Card className="border-red-500 bg-red-50 dark:bg-red-950">
+          <CardContent className="pt-4 text-sm text-red-600 dark:text-red-400">
+            Failed to load treasury data: {error}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -87,17 +201,14 @@ export function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(mockData.totalBalance)}
+              {isLoading ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : (
+                formatCurrency(treasuryData?.total_usd ?? 0)
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
-              <span
-                className={
-                  mockData.change24h >= 0 ? 'text-green-600' : 'text-red-600'
-                }
-              >
-                {formatPercent(mockData.change24h)}
-              </span>{' '}
-              from yesterday
+              USDC across all chains
             </p>
           </CardContent>
         </Card>
@@ -105,25 +216,18 @@ export function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">ETH Price</CardTitle>
-            {mockData.ethChange >= 0 ? (
-              <TrendingUp className="h-4 w-4 text-green-600" />
-            ) : (
-              <TrendingDown className="h-4 w-4 text-red-600" />
-            )}
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(mockData.ethPrice)}
+              {isLoading ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : (
+                formatCurrency(treasuryData?.eth_price ?? 0)
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
-              <span
-                className={
-                  mockData.ethChange >= 0 ? 'text-green-600' : 'text-red-600'
-                }
-              >
-                {formatPercent(mockData.ethChange)}
-              </span>{' '}
-              24h change
+              From Uniswap v3 via The Graph
             </p>
           </CardContent>
         </Card>
@@ -136,9 +240,7 @@ export function Dashboard() {
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {mockData.pendingExecutions}
-            </div>
+            <div className="text-2xl font-bold">0</div>
             <p className="text-xs text-muted-foreground">
               Awaiting confirmation
             </p>
@@ -151,7 +253,7 @@ export function Dashboard() {
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockData.activeAlerts}</div>
+            <div className="text-2xl font-bold">0</div>
             <p className="text-xs text-muted-foreground">Unacknowledged</p>
           </CardContent>
         </Card>
@@ -162,27 +264,37 @@ export function Dashboard() {
         <Card>
           <CardHeader>
             <CardTitle>Balance by Chain</CardTitle>
-            <CardDescription>USDC distribution across chains</CardDescription>
+            <CardDescription>USDC distribution via Circle Gateway</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {mockData.chains.map((chain) => (
-                <div key={chain.chain} className="flex items-center">
-                  <div className="w-24 text-sm font-medium">{chain.chain}</div>
-                  <div className="flex-1">
-                    <div className="h-2 rounded-full bg-secondary">
-                      <div
-                        className="h-2 rounded-full bg-primary"
-                        style={{ width: `${chain.percent}%` }}
-                      />
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : chainBreakdown.length > 0 ? (
+              <div className="space-y-4">
+                {chainBreakdown.map((chain) => (
+                  <div key={chain.chain} className="flex items-center">
+                    <div className="w-24 text-sm font-medium">{chain.chain}</div>
+                    <div className="flex-1">
+                      <div className="h-2 rounded-full bg-secondary">
+                        <div
+                          className="h-2 rounded-full bg-primary"
+                          style={{ width: `${chain.percent}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div className="w-24 text-right text-sm">
+                      {formatCurrency(chain.balance)}
                     </div>
                   </div>
-                  <div className="w-24 text-right text-sm">
-                    {formatCurrency(chain.balance)}
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                No balances found. Deposit USDC to get started.
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -200,24 +312,56 @@ export function Dashboard() {
               <ArrowDownToLine className="mr-2 h-4 w-4" />
               Deposit USDC
             </Button>
-            <Button className="w-full justify-start" variant="outline">
+            <Button
+              className="w-full justify-start"
+              variant="outline"
+              onClick={() => setSwapModalOpen(true)}
+              disabled={!n8nReady}
+            >
+              <ArrowLeftRight className="mr-2 h-4 w-4" />
               Request Swap
             </Button>
-            <Button className="w-full justify-start" variant="outline">
+            <Button
+              className="w-full justify-start"
+              variant="outline"
+              onClick={handleTriggerDailyReport}
+              disabled={!n8nReady || actionLoading === 'daily-report'}
+            >
+              {actionLoading === 'daily-report' ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="mr-2 h-4 w-4" />
+              )}
               Trigger Daily Report
             </Button>
-            <Button className="w-full justify-start" variant="outline">
+            <Button
+              className="w-full justify-start"
+              variant="outline"
+              onClick={handleCheckPrices}
+              disabled={!n8nReady || isLoading}
+            >
+              {isLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <DollarSign className="mr-2 h-4 w-4" />
+              )}
               Check Current Prices
             </Button>
-            <Button className="w-full justify-start" variant="outline">
+            <Button
+              className="w-full justify-start"
+              variant="outline"
+              onClick={() => navigate('/history')}
+            >
+              <ClipboardList className="mr-2 h-4 w-4" />
               View Pending Confirmations
             </Button>
           </CardContent>
         </Card>
       </div>
 
-      {/* Deposit Modal */}
+      {/* Modals */}
       <DepositModal open={depositModalOpen} onOpenChange={setDepositModalOpen} />
+      <SwapModal open={swapModalOpen} onOpenChange={setSwapModalOpen} />
     </div>
   );
 }
