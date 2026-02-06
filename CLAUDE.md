@@ -11,6 +11,8 @@ High-level efforts that need human guidance, testing, and decision-making. Remov
 - [ ] **Test LI.FI Integration** - Cross-chain swap end-to-end, verify bridge selection and execution
 - [ ] **Implement & Test ENS** - Resolve .eth names in Discord commands, test with real names
 - [ ] **Improve Dashboard App** - UX polish, additional features, mobile responsiveness
+  - [ ] Test and fix WalletConnect integration
+  - [ ] Test and fix all Quick Action buttons
 - [ ] **N-of-M Approval Logic & Testing** - Discord reaction-based consensus for large transactions
 - [ ] **User/Group Registration** - Onboarding flow for families/teams, permission management
 - [ ] **Project Landing Page** - Public-facing page pitching PigAiBank for the hackathon
