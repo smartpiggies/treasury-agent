@@ -140,7 +140,7 @@ export function History() {
             View past swaps and operations
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant={filter === 'all' ? 'default' : 'outline'}
             size="sm"
@@ -233,26 +233,26 @@ export function History() {
               {executions.map((execution) => (
                 <div
                   key={execution.$id}
-                  className="flex items-center justify-between rounded-lg border p-4"
+                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between rounded-lg border p-4 gap-4"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="rounded-full bg-secondary p-2">
+                  <div className="flex items-start sm:items-center gap-4 w-full sm:w-auto">
+                    <div className="rounded-full bg-secondary p-2 flex-shrink-0">
                       <ArrowRightLeft className="h-4 w-4" />
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium break-words">
                           {execution.amount} {execution.source_token}
                         </span>
                         <span className="text-muted-foreground">→</span>
-                        <span className="font-medium">{execution.dest_token}</span>
+                        <span className="font-medium break-words">{execution.dest_token}</span>
                         {execution.recipient_ens && (
-                          <span className="text-sm text-muted-foreground">
+                          <span className="text-sm text-muted-foreground break-all">
                             to {execution.recipient_ens}
                           </span>
                         )}
                       </div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-sm text-muted-foreground break-words">
                         {getChainName(execution.source_chain)}
                         {execution.source_chain !== execution.dest_chain && (
                           <> → {getChainName(execution.dest_chain)}</>
@@ -278,8 +278,27 @@ export function History() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
+                    {/* Status badge - show first on mobile for prominence */}
+                    <div className="order-1 sm:order-2">
+                      <StatusBadge status={execution.status} />
+                    </div>
+
+                    {/* TX link - second on mobile */}
+                    {execution.tx_hash && (
+                      <a
+                        href={getExplorerUrl(execution.dest_chain, execution.tx_hash)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-sm text-primary hover:underline order-2 sm:order-3"
+                      >
+                        {shortenTxHash(execution.tx_hash)}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+
+                    {/* Date - third on mobile (less critical) */}
+                    <div className="text-left sm:text-right order-3 sm:order-1">
                       <div className="text-sm">
                         {new Date(execution.timestamp).toLocaleDateString()}
                       </div>
@@ -288,22 +307,11 @@ export function History() {
                       </div>
                     </div>
 
-                    <StatusBadge status={execution.status} />
-
-                    {execution.tx_hash && (
-                      <a
-                        href={getExplorerUrl(execution.dest_chain, execution.tx_hash)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-sm text-primary hover:underline"
-                      >
-                        {shortenTxHash(execution.tx_hash)}
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
-
+                    {/* Confirmation button - last, full width on mobile */}
                     {execution.status === 'awaiting_confirmation' && (
-                      <Button size="sm">Confirm</Button>
+                      <Button size="sm" className="w-full sm:w-auto order-4">
+                        Confirm
+                      </Button>
                     )}
                   </div>
                 </div>

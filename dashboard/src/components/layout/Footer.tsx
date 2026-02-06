@@ -57,9 +57,9 @@ export function Footer() {
       {/* Main footer content */}
       <div className="container pt-16 pb-8">
         {/* Top section: Brand + columns */}
-        <div className="grid gap-12 lg:grid-cols-12">
+        <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-12">
           {/* Brand column */}
-          <div className="lg:col-span-4">
+          <div className="md:col-span-1 lg:col-span-4">
             <div className="flex items-center gap-3">
               <PiggyBank />
               <span className="text-lg font-semibold tracking-tight">
@@ -89,7 +89,7 @@ export function Footer() {
           </div>
 
           {/* Link columns */}
-          <div className="grid grid-cols-2 gap-8 lg:col-span-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 md:col-span-1 lg:col-span-8">
             {/* Navigation */}
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">

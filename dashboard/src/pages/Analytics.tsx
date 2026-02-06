@@ -210,7 +210,7 @@ export function Analytics() {
             Price trends and execution analytics
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {(['7D', '30D', '90D'] as TimeRange[]).map((range) => (
             <Button
               key={range}
@@ -264,7 +264,7 @@ export function Analytics() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
+            <div className="h-[200px] sm:h-[250px] md:h-[300px]">
               {isLoading ? (
                 <div className="flex items-center justify-center h-full">
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -318,7 +318,7 @@ export function Analytics() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
+            <div className="h-[200px] sm:h-[250px] md:h-[300px]">
               {isLoading ? (
                 <div className="flex items-center justify-center h-full">
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -377,7 +377,7 @@ export function Analytics() {
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-5">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Price High</p>
                 <p className="text-2xl font-bold">

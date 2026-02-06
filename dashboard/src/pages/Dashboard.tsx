@@ -174,7 +174,7 @@ export function Dashboard() {
             Treasury overview and quick actions
           </p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-2 md:gap-4">
           {lastUpdated && (
             <span className="text-xs text-muted-foreground">
               Updated {lastUpdated.toLocaleTimeString()}
@@ -317,7 +317,7 @@ export function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Balance by Chain</CardTitle>
+            <CardTitle className="text-base md:text-lg">Balance by Chain</CardTitle>
             <CardDescription>USDC distribution via Circle Gateway</CardDescription>
           </CardHeader>
           <CardContent>
@@ -354,7 +354,7 @@ export function Dashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
+            <CardTitle className="text-base md:text-lg">Quick Actions</CardTitle>
             <CardDescription>Common treasury operations</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">

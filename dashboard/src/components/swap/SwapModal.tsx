@@ -80,7 +80,7 @@ export function SwapModal({ open, onOpenChange }: SwapModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>Request Swap</DialogTitle>
           <DialogDescription>
@@ -135,7 +135,7 @@ export function SwapModal({ open, onOpenChange }: SwapModalProps) {
               </div>
 
               {/* From */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label>From Chain</Label>
                   <select
@@ -174,7 +174,7 @@ export function SwapModal({ open, onOpenChange }: SwapModalProps) {
               </div>
 
               {/* To */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label>To Chain</Label>
                   <select
