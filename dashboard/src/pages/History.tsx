@@ -1,3 +1,4 @@
+import { useState, useEffect, useCallback } from 'react';
 import {
   Card,
   CardContent,
@@ -8,69 +9,45 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn, shortenTxHash, getExplorerUrl, getChainName } from '@/lib/utils';
 import {
+  databases,
+  DATABASE_ID,
+  COLLECTIONS,
+  Query,
+  isAppwriteConfigured,
+} from '@/lib/appwrite';
+import {
   ArrowRightLeft,
   ExternalLink,
   CheckCircle,
   XCircle,
   Clock,
   Loader2,
+  RefreshCw,
+  AlertTriangle,
+  Inbox,
 } from 'lucide-react';
 import type { ExecutionStatus } from '@/types';
 
-// Placeholder data
-const mockExecutions = [
-  {
-    id: '1',
-    timestamp: '2026-01-31T14:30:00Z',
-    type: 'swap',
-    sourceChain: 'arbitrum',
-    destChain: 'base',
-    sourceToken: 'USDC',
-    destToken: 'ETH',
-    amount: '5000',
-    status: 'completed' as ExecutionStatus,
-    txHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-    route: 'lifi',
-  },
-  {
-    id: '2',
-    timestamp: '2026-01-31T10:15:00Z',
-    type: 'swap',
-    sourceChain: 'ethereum',
-    destChain: 'ethereum',
-    sourceToken: 'ETH',
-    destToken: 'USDC',
-    amount: '2',
-    status: 'completed' as ExecutionStatus,
-    txHash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
-    route: 'uniswap',
-  },
-  {
-    id: '3',
-    timestamp: '2026-01-30T16:45:00Z',
-    type: 'swap',
-    sourceChain: 'base',
-    destChain: 'arbitrum',
-    sourceToken: 'USDC',
-    destToken: 'USDC',
-    amount: '10000',
-    status: 'failed' as ExecutionStatus,
-    error: 'Slippage exceeded maximum',
-    route: 'lifi',
-  },
-  {
-    id: '4',
-    timestamp: '2026-01-31T15:00:00Z',
-    type: 'swap',
-    sourceChain: 'arbitrum',
-    destChain: 'arbitrum',
-    sourceToken: 'USDC',
-    destToken: 'ETH',
-    amount: '1000',
-    status: 'awaiting_confirmation' as ExecutionStatus,
-    route: 'uniswap',
-  },
-];
+type FilterType = 'all' | 'completed' | 'pending' | 'failed';
+
+interface Execution {
+  $id: string;
+  $createdAt: string;
+  timestamp: string;
+  type: string;
+  source_chain: string;
+  dest_chain: string;
+  source_token: string;
+  dest_token: string;
+  amount: string;
+  status: ExecutionStatus;
+  tx_hash?: string;
+  route?: string;
+  error?: string;
+  reason?: string;
+  recipient?: string;
+  recipient_ens?: string;
+}
 
 function StatusBadge({ status }: { status: ExecutionStatus }) {
   const config = {
@@ -86,7 +63,7 @@ function StatusBadge({ status }: { status: ExecutionStatus }) {
     cancelled: { icon: XCircle, className: 'text-gray-600 bg-gray-100' },
   };
 
-  const { icon: Icon, className } = config[status];
+  const { icon: Icon, className } = config[status] || config.pending;
 
   return (
     <span
@@ -102,6 +79,58 @@ function StatusBadge({ status }: { status: ExecutionStatus }) {
 }
 
 export function History() {
+  const appwriteReady = isAppwriteConfigured();
+  const [executions, setExecutions] = useState<Execution[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<FilterType>('all');
+
+  const fetchExecutions = useCallback(async () => {
+    if (!appwriteReady) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Build queries based on filter
+      const queries = [
+        Query.orderDesc('timestamp'),
+        Query.limit(50),
+      ];
+
+      if (filter === 'completed') {
+        queries.push(Query.equal('status', 'completed'));
+      } else if (filter === 'pending') {
+        queries.push(
+          Query.equal('status', ['pending', 'awaiting_confirmation', 'executing'])
+        );
+      } else if (filter === 'failed') {
+        queries.push(Query.equal('status', ['failed', 'cancelled']));
+      }
+
+      const response = await databases.listDocuments(
+        DATABASE_ID,
+        COLLECTIONS.EXECUTIONS,
+        queries
+      );
+
+      setExecutions(response.documents as unknown as Execution[]);
+    } catch (err) {
+      console.error('Failed to fetch executions:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch executions');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [appwriteReady, filter]);
+
+  useEffect(() => {
+    fetchExecutions();
+  }, [fetchExecutions]);
+
+  const handleFilterChange = (newFilter: FilterType) => {
+    setFilter(newFilter);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -112,89 +141,175 @@ export function History() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+          <Button
+            variant={filter === 'all' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => handleFilterChange('all')}
+          >
             All
           </Button>
-          <Button variant="outline" size="sm">
+          <Button
+            variant={filter === 'completed' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => handleFilterChange('completed')}
+          >
             Completed
           </Button>
-          <Button variant="outline" size="sm">
+          <Button
+            variant={filter === 'pending' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => handleFilterChange('pending')}
+          >
             Pending
           </Button>
-          <Button variant="outline" size="sm">
+          <Button
+            variant={filter === 'failed' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => handleFilterChange('failed')}
+          >
             Failed
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchExecutions}
+            disabled={isLoading || !appwriteReady}
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
           </Button>
         </div>
       </div>
+
+      {/* Configuration warning */}
+      {!appwriteReady && (
+        <Card className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950">
+          <CardContent className="flex items-center gap-2 pt-4 text-sm text-yellow-600 dark:text-yellow-400">
+            <AlertTriangle className="h-4 w-4" />
+            Appwrite is not configured. Set VITE_APPWRITE_ENDPOINT and VITE_APPWRITE_PROJECT_ID in .env.local
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Error display */}
+      {error && (
+        <Card className="border-red-500 bg-red-50 dark:bg-red-950">
+          <CardContent className="flex items-center gap-2 pt-4 text-sm text-red-600 dark:text-red-400">
+            <XCircle className="h-4 w-4" />
+            {error}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
           <CardTitle>Recent Executions</CardTitle>
           <CardDescription>
-            Showing last 50 transactions
+            {executions.length > 0
+              ? `Showing ${executions.length} transaction${executions.length !== 1 ? 's' : ''}`
+              : 'No transactions yet'}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {mockExecutions.map((execution) => (
-              <div
-                key={execution.id}
-                className="flex items-center justify-between rounded-lg border p-4"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="rounded-full bg-secondary p-2">
-                    <ArrowRightLeft className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">
-                        {execution.amount} {execution.sourceToken}
-                      </span>
-                      <span className="text-muted-foreground">→</span>
-                      <span className="font-medium">{execution.destToken}</span>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : executions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <Inbox className="h-12 w-12 mb-4" />
+              <p className="text-lg font-medium">No executions found</p>
+              <p className="text-sm">
+                {filter !== 'all'
+                  ? `No ${filter} transactions. Try a different filter.`
+                  : 'Request a swap to see transactions here.'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {executions.map((execution) => (
+                <div
+                  key={execution.$id}
+                  className="flex items-center justify-between rounded-lg border p-4"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="rounded-full bg-secondary p-2">
+                      <ArrowRightLeft className="h-4 w-4" />
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      {getChainName(execution.sourceChain)}
-                      {execution.sourceChain !== execution.destChain && (
-                        <> → {getChainName(execution.destChain)}</>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">
+                          {execution.amount} {execution.source_token}
+                        </span>
+                        <span className="text-muted-foreground">→</span>
+                        <span className="font-medium">{execution.dest_token}</span>
+                        {execution.recipient_ens && (
+                          <span className="text-sm text-muted-foreground">
+                            to {execution.recipient_ens}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {getChainName(execution.source_chain)}
+                        {execution.source_chain !== execution.dest_chain && (
+                          <> → {getChainName(execution.dest_chain)}</>
+                        )}
+                        {execution.route && (
+                          <>
+                            <span className="mx-2">•</span>
+                            via {execution.route}
+                          </>
+                        )}
+                        {execution.reason && (
+                          <>
+                            <span className="mx-2">•</span>
+                            {execution.reason}
+                          </>
+                        )}
+                      </div>
+                      {execution.error && (
+                        <div className="text-sm text-red-600 mt-1">
+                          {execution.error}
+                        </div>
                       )}
-                      <span className="mx-2">•</span>
-                      via {execution.route}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <div className="text-sm">
-                      {new Date(execution.timestamp).toLocaleDateString()}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {new Date(execution.timestamp).toLocaleTimeString()}
                     </div>
                   </div>
 
-                  <StatusBadge status={execution.status} />
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <div className="text-sm">
+                        {new Date(execution.timestamp).toLocaleDateString()}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(execution.timestamp).toLocaleTimeString()}
+                      </div>
+                    </div>
 
-                  {execution.txHash && (
-                    <a
-                      href={getExplorerUrl(execution.destChain, execution.txHash)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-sm text-primary hover:underline"
-                    >
-                      {shortenTxHash(execution.txHash)}
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  )}
+                    <StatusBadge status={execution.status} />
 
-                  {execution.status === 'awaiting_confirmation' && (
-                    <Button size="sm">Confirm</Button>
-                  )}
+                    {execution.tx_hash && (
+                      <a
+                        href={getExplorerUrl(execution.dest_chain, execution.tx_hash)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-sm text-primary hover:underline"
+                      >
+                        {shortenTxHash(execution.tx_hash)}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+
+                    {execution.status === 'awaiting_confirmation' && (
+                      <Button size="sm">Confirm</Button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
