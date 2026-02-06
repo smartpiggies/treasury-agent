@@ -5,8 +5,6 @@ import {
   ERC20_ABI,
   GATEWAY_WALLET_ABI,
   getUsdcAddress,
-  getCircleDomain,
-  addressToBytes32,
   parseUsdcAmount,
   formatUsdcAmount,
 } from '@/lib/contracts';
@@ -28,7 +26,7 @@ interface UseGatewayDepositReturn {
 
   // Actions
   approve: (amount: string) => Promise<void>;
-  deposit: (amount: string, recipientAddress?: string) => Promise<void>;
+  deposit: (amount: string) => Promise<void>;
   reset: () => void;
 }
 
@@ -116,15 +114,9 @@ export function useGatewayDeposit(): UseGatewayDepositReturn {
   }, [usdcAddress, address, writeContractAsync]);
 
   // Deposit function
-  const deposit = useCallback(async (amount: string, recipientAddress?: string) => {
-    if (!usdcAddress || !address || !chainId) {
+  const deposit = useCallback(async (amount: string) => {
+    if (!usdcAddress || !address) {
       setError('Wallet not connected or unsupported chain');
-      return;
-    }
-
-    const domain = getCircleDomain(chainId);
-    if (domain === undefined) {
-      setError('Unsupported chain for Circle Gateway');
       return;
     }
 
@@ -133,16 +125,12 @@ export function useGatewayDeposit(): UseGatewayDepositReturn {
       setError(null);
       const amountParsed = parseUsdcAmount(amount);
 
-      // Use recipient address or default to connected wallet
-      const recipient = recipientAddress || address;
-      const mintRecipient = addressToBytes32(recipient);
-
       setStep('depositing');
       const hash = await writeContractAsync({
         address: GATEWAY_WALLET,
         abi: GATEWAY_WALLET_ABI,
-        functionName: 'depositForBurn',
-        args: [amountParsed, domain, mintRecipient, usdcAddress],
+        functionName: 'deposit',
+        args: [usdcAddress, amountParsed],
       });
 
       setDepositTxHash(hash);
@@ -152,7 +140,7 @@ export function useGatewayDeposit(): UseGatewayDepositReturn {
       setError(err instanceof Error ? err.message : 'Failed to deposit');
       setStep('error');
     }
-  }, [usdcAddress, address, chainId, writeContractAsync]);
+  }, [usdcAddress, address, writeContractAsync]);
 
   // Reset state
   const reset = useCallback(() => {

@@ -60,19 +60,17 @@ export const ERC20_ABI = [
   },
 ] as const;
 
-// Circle Gateway Wallet ABI (depositForBurn)
+// Circle Gateway Wallet ABI (deposit)
 export const GATEWAY_WALLET_ABI = [
   {
-    name: 'depositForBurn',
+    name: 'deposit',
     type: 'function',
     stateMutability: 'nonpayable',
     inputs: [
-      { name: 'amount', type: 'uint256' },
-      { name: 'destinationDomain', type: 'uint32' },
-      { name: 'mintRecipient', type: 'bytes32' },
-      { name: 'burnToken', type: 'address' },
+      { name: 'token', type: 'address' },
+      { name: 'value', type: 'uint256' },
     ],
-    outputs: [{ type: 'uint64' }],
+    outputs: [],
   },
 ] as const;
 
