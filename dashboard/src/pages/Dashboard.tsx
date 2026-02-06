@@ -9,7 +9,13 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
-import { isAppwriteConfigured } from '@/lib/appwrite';
+import {
+  isAppwriteConfigured,
+  databases,
+  DATABASE_ID,
+  COLLECTIONS,
+  Query,
+} from '@/lib/appwrite';
 import {
   isN8nConfigured,
   getBalance,
@@ -50,6 +56,8 @@ export function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [notification, setNotification] = useState<Notification>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [alertCount, setAlertCount] = useState(0);
 
   const fetchTreasuryData = useCallback(async () => {
     if (!n8nReady) return;
@@ -67,9 +75,33 @@ export function Dashboard() {
     }
   }, [n8nReady]);
 
+  const fetchAppwriteCounts = useCallback(async () => {
+    if (!appwriteReady) return;
+
+    try {
+      // Fetch pending executions and unacknowledged alerts in parallel
+      const [executionsResponse, alertsResponse] = await Promise.all([
+        databases.listDocuments(DATABASE_ID, COLLECTIONS.EXECUTIONS, [
+          Query.equal('status', ['pending', 'awaiting_confirmation', 'executing']),
+          Query.limit(100),
+        ]),
+        databases.listDocuments(DATABASE_ID, COLLECTIONS.ALERTS, [
+          Query.equal('acknowledged', false),
+          Query.limit(100),
+        ]),
+      ]);
+
+      setPendingCount(executionsResponse.total);
+      setAlertCount(alertsResponse.total);
+    } catch (err) {
+      console.error('Failed to fetch Appwrite counts:', err);
+    }
+  }, [appwriteReady]);
+
   useEffect(() => {
     fetchTreasuryData();
-  }, [fetchTreasuryData]);
+    fetchAppwriteCounts();
+  }, [fetchTreasuryData, fetchAppwriteCounts]);
 
   // Clear notification after 5 seconds
   useEffect(() => {
@@ -143,7 +175,10 @@ export function Dashboard() {
         <Button
           variant="outline"
           size="sm"
-          onClick={fetchTreasuryData}
+          onClick={() => {
+            fetchTreasuryData();
+            fetchAppwriteCounts();
+          }}
           disabled={isLoading || !n8nReady}
         >
           {isLoading ? (
@@ -232,28 +267,38 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className={pendingCount > 0 ? 'cursor-pointer hover:bg-accent/50 transition-colors' : ''}
+          onClick={pendingCount > 0 ? () => navigate('/history?filter=pending') : undefined}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               Pending Executions
             </CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+            <Activity className={`h-4 w-4 ${pendingCount > 0 ? 'text-orange-500' : 'text-muted-foreground'}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className={`text-2xl font-bold ${pendingCount > 0 ? 'text-orange-600' : ''}`}>
+              {pendingCount}
+            </div>
             <p className="text-xs text-muted-foreground">
               Awaiting confirmation
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className={alertCount > 0 ? 'cursor-pointer hover:bg-accent/50 transition-colors' : ''}
+          onClick={alertCount > 0 ? () => navigate('/history') : undefined}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Alerts</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <AlertTriangle className={`h-4 w-4 ${alertCount > 0 ? 'text-red-500' : 'text-muted-foreground'}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className={`text-2xl font-bold ${alertCount > 0 ? 'text-red-600' : ''}`}>
+              {alertCount}
+            </div>
             <p className="text-xs text-muted-foreground">Unacknowledged</p>
           </CardContent>
         </Card>
