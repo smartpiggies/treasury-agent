@@ -122,7 +122,8 @@ export function Homepage() {
         {/* Content */}
         <div className="container relative z-10 text-center space-y-8 py-20 px-4">
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight">
-            Treasury Management for{" "}
+            Treasury Management for
+            <br />
             <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               Families & Teams
             </span>
