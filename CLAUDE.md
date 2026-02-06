@@ -2,6 +2,19 @@
 
 > **This is a PUBLIC repository.** Never commit secrets, private keys, API keys, passwords, or credentials. All secrets live on the server (see [Self-Hosted Infrastructure](#self-hosted-infrastructure)).
 
+## Epics / TODO
+
+High-level efforts that need human guidance, testing, and decision-making. Remove items when complete.
+
+- [ ] **Test End-to-End Circle ARC** - Full deposit → balance → transfer flow on mainnet
+- [ ] **Test Uniswap Integration** - Same-chain swap execution via v4, verify routing and pricing
+- [ ] **Test LI.FI Integration** - Cross-chain swap end-to-end, verify bridge selection and execution
+- [ ] **Implement & Test ENS** - Resolve .eth names in Discord commands, test with real names
+- [ ] **Improve Dashboard App** - UX polish, additional features, mobile responsiveness
+- [ ] **N-of-M Approval Logic & Testing** - Discord reaction-based consensus for large transactions
+- [ ] **User/Group Registration** - Onboarding flow for families/teams, permission management
+- [ ] **Project Landing Page** - Public-facing page pitching Treasury Agent for the hackathon
+
 ## Project Overview
 
 **Treasury Agent** is a Discord-native AI that manages crypto for families, teams, and small organizations through conversation. Built for EthGlobal HackMoney 2026.
