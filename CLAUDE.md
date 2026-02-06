@@ -1,4 +1,4 @@
-# Treasury Agent - Claude Code Context
+# PigAiBank - Claude Code Context
 
 > **This is a PUBLIC repository.** Never commit secrets, private keys, API keys, passwords, or credentials. All secrets live on the server (see [Self-Hosted Infrastructure](#self-hosted-infrastructure)).
 
@@ -13,19 +13,19 @@ High-level efforts that need human guidance, testing, and decision-making. Remov
 - [ ] **Improve Dashboard App** - UX polish, additional features, mobile responsiveness
 - [ ] **N-of-M Approval Logic & Testing** - Discord reaction-based consensus for large transactions
 - [ ] **User/Group Registration** - Onboarding flow for families/teams, permission management
-- [ ] **Project Landing Page** - Public-facing page pitching Treasury Agent for the hackathon
+- [ ] **Project Landing Page** - Public-facing page pitching PigAiBank for the hackathon
 
 ## Project Overview
 
-**Treasury Agent** is a Discord-native AI that manages crypto for families, teams, and small organizations through conversation. Built for EthGlobal HackMoney 2026.
+**PigAiBank** is a Discord-native AI that manages crypto for families, teams, and small organizations through conversation. Built for EthGlobal HackMoney 2026.
 
 **Core Idea**: "Just chat. The agent handles the complexity."
 
 ```
-Mom: "@TreasuryAgent what's our balance?"
+Mom: "@PigAiBank what's our balance?"
 Agent: "You have $12,340 total - $8,200 in stablecoins and $4,140 in ETH"
 
-Dad: "@TreasuryAgent send $100 to alex.eth"
+Dad: "@PigAiBank send $100 to alex.eth"
 Agent: "Got it! Resolved alex.eth → 0x742d... Sending now."
 ```
 
@@ -109,7 +109,7 @@ Family consensus for large transactions via Discord reactions.
 ### 5. Deposit USDC (NEW)
 Two ways to deposit USDC to Circle Gateway:
 - **Dashboard**: Connect wallet with RainbowKit, approve + deposit
-- **Discord**: `@TreasuryAgent deposit $100` (mock mode or treasury wallet)
+- **Discord**: `@PigAiBank deposit $100` (mock mode or treasury wallet)
 
 ## Monorepo Structure
 
@@ -122,6 +122,8 @@ treasury-agent/
 ├── docs/          # Detailed documentation and proposals
 └── .env.example   # Environment variables template
 ```
+
+> **Note:** The GitHub repo, Appwrite project ID (`treasury-agent-1`), database ID (`treasury`), and Appwrite Sites URL still reference "treasury-agent" for backwards compatibility with deployed infrastructure. Only user-facing names use "PigAiBank".
 
 ## n8n Workflows
 

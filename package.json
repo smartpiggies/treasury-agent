@@ -1,9 +1,9 @@
 {
-  "name": "treasury-agent",
+  "name": "pigaibank",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Autonomous DeFi treasury agent powered by n8n, Circle Gateway & LI.FI",
+  "description": "AI-powered crypto management for families & teams — powered by n8n, Circle Gateway & LI.FI",
   "scripts": {
     "dashboard:dev": "cd dashboard && pnpm dev",
     "dashboard:build": "cd dashboard && pnpm build",

@@ -7,7 +7,7 @@ Lightweight Discord.js bot that forwards @mention commands to n8n webhook for pr
 ## Architecture
 
 ```
-Discord Message (@TreasuryAgent balance)
+Discord Message (@PigAiBank balance)
          │
          ▼
 ┌─────────────────────┐

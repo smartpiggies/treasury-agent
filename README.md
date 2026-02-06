@@ -1,18 +1,18 @@
-# Treasury Agent
+# PigAiBank
 
-> Autonomous DeFi treasury agent powered by n8n, Circle Gateway & LI.FI
+> AI-powered crypto management for families & teams — powered by n8n, Circle Gateway & LI.FI
 
 **EthGlobal HackMoney 2026**
 
 **Live Demo:** https://hackmoney2026.smartpiggies.com/
 
-Treasury Ops Bot is an autonomous treasury management agent built on n8n workflow automation. It implements a classic agent loop—Monitor, Decide, Execute, Report—to automate the operational burden of multi-chain DeFi treasury management. The bot monitors positions via Uniswap v4 subgraph data, tracks unified USDC balances across 11 chains using Circle Gateway (<500ms cross-chain transfers), and executes swaps and rebalancing operations through a dual-path architecture: Uniswap for same-chain swaps, LI.FI for cross-chain operations and multi-step DeFi via Composer. Automated reports and alerts are delivered to Discord/Slack, with all activity logged for audit.
+PigAiBank is an autonomous crypto management agent built on n8n workflow automation. It implements a classic agent loop—Monitor, Decide, Execute, Report—to automate the operational burden of multi-chain DeFi treasury management. The bot monitors positions via Uniswap v4 subgraph data, tracks unified USDC balances across 11 chains using Circle Gateway (<500ms cross-chain transfers), and executes swaps and rebalancing operations through a dual-path architecture: Uniswap for same-chain swaps, LI.FI for cross-chain operations and multi-step DeFi via Composer. Automated reports and alerts are delivered to Discord/Slack, with all activity logged for audit.
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        TREASURY OPS BOT                          │
+│                          PIGAIBANK                                │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────┐ │

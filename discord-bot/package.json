@@ -1,7 +1,7 @@
 {
   "name": "treasury-discord-bot",
   "version": "1.0.0",
-  "description": "Discord bot that forwards @mentions to n8n webhook for Treasury Agent",
+  "description": "Discord bot that forwards @mentions to n8n webhook for PigAiBank",
   "main": "src/index.js",
   "type": "module",
   "scripts": {

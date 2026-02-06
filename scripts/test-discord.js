@@ -20,14 +20,14 @@ async function sendTestMessage(webhookUrl, type) {
 
   const payload = {
     embeds: [{
-      title: `🧪 Treasury Bot Test - ${type}`,
-      description: `This is a test message from the treasury-agent bot.\n\nTimestamp: ${new Date().toISOString()}`,
+      title: `🧪 PigAiBank Test - ${type}`,
+      description: `This is a test message from PigAiBank.\n\nTimestamp: ${new Date().toISOString()}`,
       color: type === 'Reports' ? 0x00ff00 : 0xffaa00,
       fields: [
         { name: 'Environment', value: 'Development', inline: true },
         { name: 'Status', value: '✅ Connected', inline: true }
       ],
-      footer: { text: 'Treasury Ops Bot - Test Script' }
+      footer: { text: 'PigAiBank - Test Script' }
     }]
   };
 

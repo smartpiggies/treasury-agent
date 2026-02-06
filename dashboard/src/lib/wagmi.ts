@@ -5,7 +5,7 @@ import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '';
 
 export const config = getDefaultConfig({
-  appName: 'Treasury Agent',
+  appName: 'PigAiBank',
   projectId,
   chains: [arbitrum, base, mainnet],
   transports: {

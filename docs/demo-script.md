@@ -1,4 +1,4 @@
-# Treasury Agent Demo Script
+# PigAiBank Demo Script
 
 **Duration:** 3 minutes
 **Format:** Screen recording of Discord + brief dashboard view
@@ -9,7 +9,7 @@
 
 ## Narrative
 
-> "Meet the Johnson family. They want to invest in crypto together, but Mom isn't technical, the kids are busy, and Dad doesn't want to be the single point of failure holding all the keys. Treasury Agent lets them manage their crypto through Discord chat - no wallets to learn, no scary interfaces, just conversation."
+> "Meet the Johnson family. They want to invest in crypto together, but Mom isn't technical, the kids are busy, and Dad doesn't want to be the single point of failure holding all the keys. PigAiBank lets them manage their crypto through Discord chat - no wallets to learn, no scary interfaces, just conversation."
 
 ---
 
@@ -23,7 +23,7 @@
   - Mom (Admin)
   - Alex (Member)
   - Sam (Member)
-  - TreasuryAgent (Bot)
+  - PigAiBank (Bot)
 
 ### Wallet State
 - EOA wallet connected to n8n
@@ -54,13 +54,13 @@
 **[Mom types in Discord]**
 
 ```
-Mom: @TreasuryAgent what's our balance?
+Mom: @PigAiBank what's our balance?
 ```
 
 **[Agent responds within 2-3 seconds]**
 
 ```
-TreasuryAgent: Good morning! Here's where you stand:
+PigAiBank: Good morning! Here's where you stand:
 
 💰 Total: $100.42
 
@@ -87,13 +87,13 @@ Everything's stable today. Nothing needs your attention.
 **[Alex types in Discord]**
 
 ```
-Alex: @TreasuryAgent swap $10 to ETH
+Alex: @PigAiBank swap $10 to ETH
 ```
 
 **[Agent responds]**
 
 ```
-TreasuryAgent: Got it! $10 is under your auto-approve limit, so I'll do this now.
+PigAiBank: Got it! $10 is under your auto-approve limit, so I'll do this now.
 
 Swapping $10 USDC → ETH on Arbitrum...
 ```
@@ -101,7 +101,7 @@ Swapping $10 USDC → ETH on Arbitrum...
 **[Few seconds pass, agent updates]**
 
 ```
-TreasuryAgent: Done! ✓
+PigAiBank: Done! ✓
 
 Bought 0.0029 ETH (about $10.00)
 Fee: $0.03
@@ -129,13 +129,13 @@ Transaction: arbiscan.io/tx/0x7f3a... (link)
 **[Dad types in Discord]**
 
 ```
-Dad: @TreasuryAgent swap $30 USDC to ETH
+Dad: @PigAiBank swap $30 USDC to ETH
 ```
 
 **[Agent responds]**
 
 ```
-TreasuryAgent: This swap is over $25, so I need one more person to approve.
+PigAiBank: This swap is over $25, so I need one more person to approve.
 
 📋 Pending Approval
 ━━━━━━━━━━━━━━━━━━
@@ -157,7 +157,7 @@ Mom: ✅
 **[Agent confirms and executes]**
 
 ```
-TreasuryAgent: Approved by Dad + Mom ✓
+PigAiBank: Approved by Dad + Mom ✓
 
 Swapping $30 USDC → ETH on Arbitrum...
 ```
@@ -165,7 +165,7 @@ Swapping $30 USDC → ETH on Arbitrum...
 **[Few seconds pass]**
 
 ```
-TreasuryAgent: Done! ✓
+PigAiBank: Done! ✓
 
 Bought 0.0087 ETH (about $30.00)
 Approved by: Dad, Mom
@@ -193,13 +193,13 @@ Transaction: arbiscan.io/tx/0x8b2c... (link)
 **[Mom types in Discord]**
 
 ```
-Mom: @TreasuryAgent move $20 to Base
+Mom: @PigAiBank move $20 to Base
 ```
 
 **[Agent responds]**
 
 ```
-TreasuryAgent: Moving $20 USDC from Arbitrum to Base...
+PigAiBank: Moving $20 USDC from Arbitrum to Base...
 
 Using Circle Gateway - this should be instant.
 ```
@@ -207,7 +207,7 @@ Using Circle Gateway - this should be instant.
 **[1-2 seconds pass]**
 
 ```
-TreasuryAgent: Done! ✓
+PigAiBank: Done! ✓
 
 $20 USDC arrived on Base.
 
@@ -249,13 +249,13 @@ Total: $140.60
 **[Back to Discord view]**
 
 **Voiceover:**
-> "Treasury Agent. Crypto for families - not just experts. No seed phrases to lose, no interfaces to learn, no single point of failure. Just chat with your agent, and it handles the complexity."
+> "PigAiBank. Crypto for families - not just experts. No seed phrases to lose, no interfaces to learn, no single point of failure. Just chat with your agent, and it handles the complexity."
 
 **Visual:** Discord chat with the conversation history visible
 
 **End card:**
 ```
-Treasury Agent
+PigAiBank
 "Crypto without the complexity"
 
 github.com/[repo]

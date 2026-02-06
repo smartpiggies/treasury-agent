@@ -1,4 +1,4 @@
-# Treasury Agent: Crypto Without the Complexity
+# PigAiBank: Crypto Without the Complexity
 
 **EthGlobal HackMoney 2026**
 
@@ -31,19 +31,19 @@ Instead of teaching someone to:
 
 ...what if they could just type in Discord:
 
-> *"@TreasuryAgent what's our balance?"*
-> *"@TreasuryAgent convert $500 of ETH to stablecoins"*
-> *"@TreasuryAgent how did we do this month?"*
+> *"@PigAiBank what's our balance?"*
+> *"@PigAiBank convert $500 of ETH to stablecoins"*
+> *"@PigAiBank how did we do this month?"*
 
 ---
 
 ## What We're Building
 
-**Treasury Agent** is a Discord-native AI that manages crypto for families, teams, and small organizations through conversation.
+**PigAiBank** is a Discord-native AI that manages crypto for families, teams, and small organizations through conversation.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    TREASURY AGENT                                │
+│                      PIGAIBANK                                    │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  "Just chat. The agent handles the complexity."                 │
@@ -52,11 +52,11 @@ Instead of teaching someone to:
 │  │                                                         │   │
 │  │   👨‍👩‍👧‍👦  Family Discord Server                            │   │
 │  │                                                         │   │
-│  │   Mom: "@TreasuryAgent what's our balance?"             │   │
+│  │   Mom: "@PigAiBank what's our balance?"                  │   │
 │  │   Agent: "You have $12,340 total - $8,200 in            │   │
 │  │          stablecoins and $4,140 in ETH"                 │   │
 │  │                                                         │   │
-│  │   Dad: "@TreasuryAgent move $2000 to savings"           │   │
+│  │   Dad: "@PigAiBank move $2000 to savings"               │   │
 │  │   Agent: "Got it! This needs Mom's approval too.        │   │
 │  │          @Mom can you confirm?"                         │   │
 │  │   Mom: "✅ Approved"                                     │   │
@@ -85,7 +85,7 @@ Everyone sees the same reports, alerts, and decisions. No black box. The less-te
 
 ## Who Is This For?
 
-| Audience | Their Problem | How Treasury Agent Helps |
+| Audience | Their Problem | How PigAiBank Helps |
 |----------|--------------|-------------------------|
 | **Families** | "I want to invest in crypto with my kids but can't teach them all the technical stuff" | Everyone participates via Discord chat; family consensus on big decisions |
 | **Small Teams** | "Our startup has crypto reserves but managing them is a full-time job" | Agent handles monitoring and execution; team approves via Discord |
@@ -130,7 +130,7 @@ No jargon. No technical metrics. Reports are written for humans, not traders.
 "0.285 ETH swapped for 1,000.00 USDC via LI.FI
 Arbitrum→Base, tx: 0x7f3a..."
 
-# What Treasury Agent shows:
+# What PigAiBank shows:
 "Done! Converted about $1,000 of ETH to dollars.
 Your stablecoin balance is now safer at $8,200."
 ```
@@ -186,11 +186,11 @@ Discord handles day-to-day. The dashboard handles:
 
 ### The Agent Loop
 
-Treasury Agent follows a simple cycle: **Monitor → Decide → Execute → Report**
+PigAiBank follows a simple cycle: **Monitor → Decide → Execute → Report**
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│              TREASURY AGENT LOOP                                 │
+│              PIGAIBANK AGENT LOOP                                │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  ┌──────────────────────────────────────────────────────────┐  │
@@ -271,7 +271,7 @@ We're targeting prizes that align with our accessibility-focused agent architect
 
 **Our Narrative**:
 
-> Treasury Agent makes cross-chain DeFi accessible to non-technical users through conversational AI. When a family member says "move some ETH to stablecoins," the agent uses LI.FI to find the optimal route across chains - the user never knows (or needs to know) about bridges, DEXs, or routing. LI.FI is the invisible execution layer that makes "just chat" possible.
+> PigAiBank makes cross-chain DeFi accessible to non-technical users through conversational AI. When a family member says "move some ETH to stablecoins," the agent uses LI.FI to find the optimal route across chains - the user never knows (or needs to know) about bridges, DEXs, or routing. LI.FI is the invisible execution layer that makes "just chat" possible.
 
 **Key Integration Points**:
 - Cross-chain swaps route through LI.FI automatically
@@ -311,7 +311,7 @@ We're targeting prizes that align with our accessibility-focused agent architect
 
 **Our Narrative**:
 
-> For a family managing crypto together, "which chain is my money on?" shouldn't matter. Treasury Agent uses Circle Gateway to present a single unified balance. When the agent says "you have $8,200 in stablecoins," that's the total across Ethereum, Arbitrum, Base, and more. Moving between chains happens in under 500ms - users just see instant results.
+> For a family managing crypto together, "which chain is my money on?" shouldn't matter. PigAiBank uses Circle Gateway to present a single unified balance. When the agent says "you have $8,200 in stablecoins," that's the total across Ethereum, Arbitrum, Base, and more. Moving between chains happens in under 500ms - users just see instant results.
 
 **Key Integration Points**:
 - Single balance view across all chains
@@ -327,7 +327,7 @@ We're targeting prizes that align with our accessibility-focused agent architect
 
 **Our Narrative**:
 
-> Treasury Agent exemplifies "agentic finance" - autonomous monitoring, threshold-based decisions, and programmatic execution. For same-chain operations, the agent uses Uniswap v4 directly for optimal execution. The agent queries v4 pools for real-time pricing via The Graph and executes swaps through the Universal Router - all invisible to users who just asked to "swap some ETH."
+> PigAiBank exemplifies "agentic finance" - autonomous monitoring, threshold-based decisions, and programmatic execution. For same-chain operations, the agent uses Uniswap v4 directly for optimal execution. The agent queries v4 pools for real-time pricing via The Graph and executes swaps through the Universal Router - all invisible to users who just asked to "swap some ETH."
 
 **Key Integration Points**:
 - Real-time price monitoring via Uniswap v3/v4 subgraph on The Graph
@@ -621,7 +621,7 @@ A key differentiator: **social consensus** for security.
 
 ### Why This Is More Secure
 
-| Traditional Crypto | Treasury Agent |
+| Traditional Crypto | PigAiBank |
 |-------------------|----------------|
 | One person holds seed phrase | Multiple people must agree |
 | 2FA protects one account | Social consensus required |
@@ -979,12 +979,12 @@ Crypto doesn't have an adoption problem - it has an **accessibility problem**.
 
 The technology works. The value proposition is real. But asking normal people to navigate seed phrases, gas fees, bridges, and DEXs is asking too much.
 
-Treasury Agent proves a different model: **the interface is conversation, and the complexity is hidden**.
+PigAiBank proves a different model: **the interface is conversation, and the complexity is hidden**.
 
 Your family can finally participate - not by learning crypto, but by chatting with an agent that handles it for them.
 
 ---
 
-*Treasury Agent — Crypto for everyone, not just experts.*
+*PigAiBank — Crypto for everyone, not just experts.*
 
 *EthGlobal HackMoney 2026*
