@@ -23,7 +23,7 @@
       "position": [450, 300],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const content = $input.first().json.body?.content || $input.first().json.content || '';\nconst lowerContent = content.toLowerCase().trim();\nlet intent = 'unknown';\nlet params = {};\n\n// Check for deposit intent first (new!)\nif (lowerContent.includes('deposit')) {\n  intent = 'deposit';\n  // Match patterns like \"deposit $100\", \"deposit 50 USDC\", \"deposit $100 on Base\"\n  const depositMatch = lowerContent.match(/deposit\\s*\\$?(\\d+(?:\\.\\d+)?)\\s*(?:usdc)?(?:\\s+(?:on|to)\\s+(ethereum|arbitrum|base))?/i);\n  if (depositMatch) {\n    params.amount = depositMatch[1];\n    params.chain = depositMatch[2] || 'arbitrum'; // default to Arbitrum\n  }\n} else if (lowerContent.includes('swap') || lowerContent.includes('convert') || lowerContent.includes('exchange')) {\n  intent = 'swap';\n  const swapMatch = lowerContent.match(/(\\d+(?:\\.\\d+)?)\\s*(usdc|eth|usdt)\\s*(?:to|for|into)\\s*(usdc|eth|usdt)/i);\n  if (swapMatch) {\n    params.amount = swapMatch[1];\n    params.fromToken = swapMatch[2].toUpperCase();\n    params.toToken = swapMatch[3].toUpperCase();\n  }\n} else if (lowerContent.includes('send') || lowerContent.includes('transfer')) {\n  intent = 'send';\n  const sendMatch = lowerContent.match(/(\\d+(?:\\.\\d+)?)\\s*(usdc|eth)\\s*(?:to)\\s*([\\w\\.]+)/i);\n  if (sendMatch) {\n    params.amount = sendMatch[1];\n    params.token = sendMatch[2].toUpperCase();\n    params.recipient = sendMatch[3];\n  }\n} else if (lowerContent.includes('balance') || lowerContent.includes('how much')) {\n  intent = 'balance';\n} else if (lowerContent.includes('price') || lowerContent.match(/^(eth|bitcoin|btc)\\s*\\??$/)) {\n  intent = 'price';\n  params.token = lowerContent.includes('btc') || lowerContent.includes('bitcoin') ? 'BTC' : 'ETH';\n} else if (lowerContent.includes('help') || lowerContent === '?') {\n  intent = 'help';\n} else if (lowerContent.match(/^(hi|hello|hey|gm|good morning)/)) {\n  intent = 'greeting';\n}\n\nreturn [{json: {...$input.first().json.body || $input.first().json, intent, params, originalContent: content}}];"
+        "jsCode": "const content = $input.first().json.body?.content || $input.first().json.content || '';\nconst lowerContent = content.toLowerCase().trim();\nlet intent = 'unknown';\nlet params = {};\n\n// Check for confirm/cancel intent first (highest priority)\nif (/^(confirm|yes|do it|execute|go|proceed)$/i.test(lowerContent)) {\n  intent = 'confirm';\n  params.action = 'confirm';\n} else if (/^(cancel|abort|no|stop|nevermind|never mind)$/i.test(lowerContent)) {\n  intent = 'confirm';\n  params.action = 'cancel';\n// Check for deposit intent\n} else if (lowerContent.includes('deposit')) {\n  intent = 'deposit';\n  // Match patterns like \"deposit $100\", \"deposit 50 USDC\", \"deposit $100 on Base\"\n  const depositMatch = lowerContent.match(/deposit\\s*\\$?(\\d+(?:\\.\\d+)?)\\s*(?:usdc)?(?:\\s+(?:on|to)\\s+(ethereum|arbitrum|base))?/i);\n  if (depositMatch) {\n    params.amount = depositMatch[1];\n    params.chain = depositMatch[2] || 'arbitrum'; // default to Arbitrum\n  }\n} else if (lowerContent.includes('swap') || lowerContent.includes('convert') || lowerContent.includes('exchange')) {\n  intent = 'swap';\n  const swapMatch = lowerContent.match(/(\\d+(?:\\.\\d+)?)\\s*(usdc|eth|usdt)\\s*(?:to|for|into)\\s*(usdc|eth|usdt)/i);\n  if (swapMatch) {\n    params.amount = swapMatch[1];\n    params.fromToken = swapMatch[2].toUpperCase();\n    params.toToken = swapMatch[3].toUpperCase();\n  }\n} else if (lowerContent.includes('send') || lowerContent.includes('transfer')) {\n  intent = 'send';\n  const sendMatch = lowerContent.match(/(\\d+(?:\\.\\d+)?)\\s*(usdc|eth)\\s*(?:to)\\s*([\\w\\.]+)/i);\n  if (sendMatch) {\n    params.amount = sendMatch[1];\n    params.token = sendMatch[2].toUpperCase();\n    params.recipient = sendMatch[3];\n  }\n} else if (lowerContent.includes('balance') || lowerContent.includes('how much')) {\n  intent = 'balance';\n} else if (lowerContent.includes('price') || lowerContent.match(/^(eth|bitcoin|btc)\\s*\\??$/)) {\n  intent = 'price';\n  params.token = lowerContent.includes('btc') || lowerContent.includes('bitcoin') ? 'BTC' : 'ETH';\n} else if (lowerContent.includes('help') || lowerContent === '?') {\n  intent = 'help';\n} else if (lowerContent.match(/^(hi|hello|hey|gm|good morning)/)) {\n  intent = 'greeting';\n}\n\nreturn [{json: {...$input.first().json.body || $input.first().json, intent, params, originalContent: content}}];"
       }
     },
     {
@@ -81,6 +81,14 @@
                 "options": {"version": 2, "combinator": "and", "leftValue": "", "typeValidation": "strict", "caseSensitive": true},
                 "combinator": "and",
                 "conditions": [{"id": "help-cond", "operator": {"type": "string", "operation": "equals"}, "leftValue": "={{ $json.intent }}", "rightValue": "help"}]
+              }
+            },
+            {
+              "outputKey": "confirm",
+              "conditions": {
+                "options": {"version": 2, "combinator": "and", "leftValue": "", "typeValidation": "strict", "caseSensitive": true},
+                "combinator": "and",
+                "conditions": [{"id": "confirm-cond", "operator": {"type": "string", "operation": "equals"}, "leftValue": "={{ $json.intent }}", "rightValue": "confirm"}]
               }
             }
           ]
@@ -143,14 +151,25 @@
       }
     },
     {
-      "id": "format-swap",
-      "name": "Format Swap Response",
+      "id": "create-swap-quote",
+      "name": "Create Swap Quote",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [850, 400],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const params = $input.first().json.params || {};\nif (!params.amount || !params.fromToken || !params.toToken) {\n  return [{json: {reply: `I couldn't parse your swap request. Try: \"swap 100 USDC to ETH\"`}}];\n}\nreturn [{json: {reply: `**Swap Quote**\\n\\nFrom: ${params.amount} ${params.fromToken}\\nTo: ~${(params.amount / 3450).toFixed(4)} ${params.toToken}\\n\\nRoute: Uniswap v4 (same-chain)\\nEstimated fee: ~$0.50\\n\\n_Reply \"confirm\" to execute or \"cancel\" to abort_`}}];"
+        "jsCode": "const fetch = require('node-fetch');\nconst params = $input.first().json.params || {};\nconst author = $input.first().json.author?.displayName || 'there';\n\nif (!params.amount || !params.fromToken || !params.toToken) {\n  return [{json: {reply: `I couldn't parse your swap request. Try: \"swap 100 USDC to ETH\"`}}];\n}\n\n// Determine route (same-chain default for now)\nconst sourceChain = 'arbitrum';\nconst destChain = 'arbitrum';\nlet route = 'uniswap';\nif (params.fromToken === 'USDC' && params.toToken === 'USDC') {\n  route = 'circle';\n}\n\n// Create pending execution in Appwrite\nconst appwriteEndpoint = $env.APPWRITE_ENDPOINT || 'https://aw.smartpiggies.cloud/v1';\nconst dbId = $env.APPWRITE_DATABASE_ID || 'treasury';\nconst projectId = $env.APPWRITE_PROJECT_ID || 'treasury-agent-1';\nconst apiKey = $env.APPWRITE_API_KEY;\n\ntry {\n  const response = await fetch(\n    `${appwriteEndpoint}/databases/${dbId}/collections/executions/documents`,\n    {\n      method: 'POST',\n      headers: {\n        'Content-Type': 'application/json',\n        'X-Appwrite-Project': projectId,\n        'X-Appwrite-Key': apiKey,\n      },\n      body: JSON.stringify({\n        documentId: 'unique()',\n        data: {\n          timestamp: new Date().toISOString(),\n          type: 'swap',\n          source_chain: sourceChain,\n          dest_chain: destChain,\n          source_token: params.fromToken.toUpperCase(),\n          dest_token: params.toToken.toUpperCase(),\n          amount: params.amount.toString(),\n          status: 'pending',\n          route: route,\n          requester: 'discord',\n        },\n      }),\n    }\n  );\n\n  if (!response.ok) {\n    const errBody = await response.text();\n    throw new Error(`Appwrite ${response.status}: ${errBody}`);\n  }\n\n  const doc = await response.json();\n  const executionId = doc.$id;\n\n  const routeLabel = route === 'uniswap' ? 'Uniswap v4 (same-chain)' : route === 'circle' ? 'Circle Gateway' : 'LI.FI';\n\n  return [{json: {reply: `**Swap Quote**\\n\\nFrom: ${params.amount} ${params.fromToken}\\nTo: ${params.toToken}\\nRoute: ${routeLabel}\\nExecution ID: \\`${executionId}\\`\\n\\n_Reply **confirm** to execute or **cancel** to abort._`}}];\n} catch (error) {\n  return [{json: {reply: `**Error creating swap quote**: ${error.message}\\n\\nPlease try again.`}}];\n}"
+      }
+    },
+    {
+      "id": "handle-confirm",
+      "name": "Handle Confirm/Cancel",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 475],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const fetch = require('node-fetch');\nconst action = $input.first().json.params?.action || 'confirm';\n\nconst appwriteEndpoint = $env.APPWRITE_ENDPOINT || 'https://aw.smartpiggies.cloud/v1';\nconst dbId = $env.APPWRITE_DATABASE_ID || 'treasury';\nconst projectId = $env.APPWRITE_PROJECT_ID || 'treasury-agent-1';\nconst apiKey = $env.APPWRITE_API_KEY;\n\ntry {\n  // Query Appwrite for the latest pending execution (JSON method format)\n  const queries = [\n    JSON.stringify({method: 'equal', attribute: 'status', values: ['pending']}),\n    JSON.stringify({method: 'orderDesc', attribute: '$createdAt'}),\n    JSON.stringify({method: 'limit', values: [1]}),\n  ];\n  const qs = queries.map(q => 'queries[]=' + encodeURIComponent(q)).join('&');\n\n  const listResponse = await fetch(\n    `${appwriteEndpoint}/databases/${dbId}/collections/executions/documents?${qs}`,\n    {\n      headers: {\n        'X-Appwrite-Project': projectId,\n        'X-Appwrite-Key': apiKey,\n      },\n    }\n  );\n\n  if (!listResponse.ok) {\n    const errBody = await listResponse.text();\n    throw new Error(`Appwrite list ${listResponse.status}: ${errBody}`);\n  }\n\n  const listData = await listResponse.json();\n\n  if (!listData.documents || listData.documents.length === 0) {\n    return [{json: {reply: `No pending swap found. Use **swap [amount] [token] to [token]** to create one first.`}}];\n  }\n\n  const pendingExec = listData.documents[0];\n  const executionId = pendingExec.$id;\n\n  if (action === 'cancel') {\n    // Cancel directly via Appwrite PATCH\n    const cancelResponse = await fetch(\n      `${appwriteEndpoint}/databases/${dbId}/collections/executions/documents/${executionId}`,\n      {\n        method: 'PATCH',\n        headers: {\n          'Content-Type': 'application/json',\n          'X-Appwrite-Project': projectId,\n          'X-Appwrite-Key': apiKey,\n        },\n        body: JSON.stringify({\n          data: {\n            status: 'cancelled',\n            completed_at: new Date().toISOString(),\n          },\n        }),\n      }\n    );\n\n    if (!cancelResponse.ok) {\n      const errBody = await cancelResponse.text();\n      throw new Error(`Cancel failed ${cancelResponse.status}: ${errBody}`);\n    }\n\n    return [{json: {reply: `**Swap Cancelled**\\n\\nExecution \\`${executionId}\\` has been cancelled.\\n${pendingExec.amount} ${pendingExec.source_token} → ${pendingExec.dest_token} will not be executed.`}}];\n  }\n\n  // Confirm: call the swap-confirm webhook\n  const n8nBaseUrl = 'https://n8n.smartpiggies.cloud';\n  const confirmResponse = await fetch(\n    `${n8nBaseUrl}/webhook/swap-confirm`,\n    {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({ executionId, action: 'confirm' }),\n    }\n  );\n\n  const confirmResult = await confirmResponse.json();\n\n  if (confirmResult.success) {\n    const txHash = confirmResult.txHash || confirmResult.tx_hash || 'N/A';\n    return [{json: {reply: `**Swap Executed!**\\n\\nExecution: \\`${executionId}\\`\\n${pendingExec.amount} ${pendingExec.source_token} → ${pendingExec.dest_token}\\nTx: \\`${txHash}\\`\\n\\n_Powered by ${pendingExec.route === 'circle' ? 'Circle Gateway' : pendingExec.route === 'uniswap' ? 'Uniswap v4' : 'LI.FI'}_`}}];\n  } else {\n    const errorMsg = confirmResult.error || confirmResult.message || 'Unknown error';\n    return [{json: {reply: `**Swap Failed**\\n\\nExecution: \\`${executionId}\\`\\nError: ${errorMsg}\\n\\nPlease try again or check the dashboard.`}}];\n  }\n} catch (error) {\n  return [{json: {reply: `**Error**: ${error.message}`}}];\n}"
       }
     },
     {
@@ -264,10 +283,11 @@
       "main": [
         [{"node": "Get Gateway Balance", "type": "main", "index": 0}],
         [{"node": "Get ETH Price", "type": "main", "index": 0}],
-        [{"node": "Format Swap Response", "type": "main", "index": 0}],
+        [{"node": "Create Swap Quote", "type": "main", "index": 0}],
         [{"node": "Handle Deposit", "type": "main", "index": 0}],
         [{"node": "Check if ENS", "type": "main", "index": 0}],
         [{"node": "Format Help Response", "type": "main", "index": 0}],
+        [{"node": "Handle Confirm/Cancel", "type": "main", "index": 0}],
         [{"node": "Format Unknown Response", "type": "main", "index": 0}]
       ]
     },
@@ -283,7 +303,10 @@
     "Format Price Response": {
       "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
     },
-    "Format Swap Response": {
+    "Create Swap Quote": {
+      "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
+    },
+    "Handle Confirm/Cancel": {
       "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
     },
     "Handle Deposit": {
