@@ -253,7 +253,7 @@ export function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Gateway Balance</CardTitle>
+            <CardTitle className="text-sm font-medium">Available Balance</CardTitle>
             <Wallet className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -267,7 +267,7 @@ export function Dashboard() {
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              {isConnected ? 'Your USDC in Circle Gateway' : 'Connect wallet for live balance'}
+              {isConnected ? 'USDC available for transfers' : 'Connect wallet for live balance'}
             </p>
           </CardContent>
         </Card>
