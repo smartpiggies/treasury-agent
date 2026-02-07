@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { requestSwap } from '@/lib/api';
 import { useAccount } from 'wagmi';
 import { useGatewaySwap, type SwapStep } from '@/hooks/useGatewaySwap';
+import { useLIFISwap, type LIFISwapStep } from '@/hooks/useLIFISwap';
 import { USDC_ADDRESSES, WETH_ADDRESSES } from '@/lib/contracts';
 import { Loader2, ArrowDown, CheckCircle, XCircle, Wallet, Route } from 'lucide-react';
 import type { Chain, Token } from '@/types';
@@ -36,11 +37,20 @@ const TOKENS: { value: Token; label: string }[] = [
 
 type Status = 'idle' | 'loading' | 'success' | 'error';
 
-const STEP_LABELS: Record<SwapStep, string> = {
+const GATEWAY_STEP_LABELS: Record<SwapStep, string> = {
   idle: '',
   signing: 'Signing burn intent...',
   polling: 'Waiting for attestation...',
   executing: 'Executing swap on-chain...',
+  success: 'Swap complete!',
+  error: 'Swap failed',
+};
+
+const LIFI_STEP_LABELS: Record<LIFISwapStep, string> = {
+  idle: '',
+  quoting: 'Fetching best route...',
+  approving: 'Approving token spend...',
+  executing: 'Executing cross-chain swap...',
   success: 'Swap complete!',
   error: 'Swap failed',
 };
@@ -86,6 +96,7 @@ function getExpectedRoute(
 export function SwapModal({ open, onOpenChange }: SwapModalProps) {
   const { address, isConnected } = useAccount();
   const gatewaySwap = useGatewaySwap();
+  const lifiSwap = useLIFISwap();
 
   const [sourceChain, setSourceChain] = useState<Chain>('arbitrum');
   const [destChain, setDestChain] = useState<Chain>('arbitrum');
@@ -96,12 +107,19 @@ export function SwapModal({ open, onOpenChange }: SwapModalProps) {
   const [status, setStatus] = useState<Status>('idle');
   const [result, setResult] = useState<{ id?: string; message?: string; txHash?: string; route?: string }>({});
 
-  // Determine if on-chain path should be used
-  const useOnChain = isConnected && sourceToken === 'USDC';
-  const isOnChainBusy = gatewaySwap.step !== 'idle' && gatewaySwap.step !== 'success' && gatewaySwap.step !== 'error';
-
   const sourceChainId = CHAINS.find(c => c.value === sourceChain)?.chainId || 42161;
   const destChainId = CHAINS.find(c => c.value === destChain)?.chainId || 42161;
+  const isCrossChain = sourceChain !== destChain;
+  const isUsdcOnly = sourceToken === 'USDC' && destToken === 'USDC';
+
+  // Routing: determine which execution path to use
+  const useGateway = isConnected && sourceToken === 'USDC' && (!isCrossChain || isUsdcOnly);
+  const useLIFI = isConnected && isCrossChain && !isUsdcOnly;
+  const useOnChain = useGateway || useLIFI;
+
+  const isOnChainBusy =
+    (gatewaySwap.step !== 'idle' && gatewaySwap.step !== 'success' && gatewaySwap.step !== 'error') ||
+    (lifiSwap.step !== 'idle' && lifiSwap.step !== 'success' && lifiSwap.step !== 'error');
 
   const expectedRoute = getExpectedRoute(sourceChain, destChain, sourceToken, destToken);
 
@@ -109,8 +127,17 @@ export function SwapModal({ open, onOpenChange }: SwapModalProps) {
     e.preventDefault();
     if (!amount || parseFloat(amount) <= 0) return;
 
-    if (useOnChain) {
-      // On-chain path via GatewaySwapReceiver
+    if (useLIFI) {
+      // Cross-chain token swap via LI.FI
+      await lifiSwap.swap({
+        sourceChainId,
+        destChainId,
+        sourceToken,
+        destToken,
+        amount,
+      });
+    } else if (useGateway) {
+      // Same-chain swap or cross-chain USDC via Gateway
       const destTokenAddress = getTokenAddress(destToken, destChainId);
       // Use 0.5% slippage → amountOutMin = 0 for now (can add quote later)
       await gatewaySwap.sign({
@@ -151,13 +178,19 @@ export function SwapModal({ open, onOpenChange }: SwapModalProps) {
         setAmount('');
         setReason('');
         gatewaySwap.reset();
+        lifiSwap.reset();
       }, 200);
     }
   };
 
+  // Determine active on-chain hook state
+  const activeStep = useLIFI ? lifiSwap.step : gatewaySwap.step;
+  const activeError = useLIFI ? lifiSwap.error : gatewaySwap.error;
+  const activeTxHash = useLIFI ? lifiSwap.txHash : gatewaySwap.txHash;
+
   // On-chain success/error states
-  const isSuccess = useOnChain ? gatewaySwap.step === 'success' : status === 'success';
-  const isError = useOnChain ? gatewaySwap.step === 'error' : status === 'error';
+  const isSuccess = useOnChain ? activeStep === 'success' : status === 'success';
+  const isError = useOnChain ? activeStep === 'error' : status === 'error';
   const isLoading = useOnChain ? isOnChainBusy : status === 'loading';
 
   return (
@@ -165,10 +198,12 @@ export function SwapModal({ open, onOpenChange }: SwapModalProps) {
       <DialogContent className="sm:max-w-[425px] p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>
-            {useOnChain ? 'Swap via Gateway' : 'Request Swap'}
+            {useLIFI ? 'Swap via LI.FI' : useGateway ? 'Swap via Gateway' : 'Request Swap'}
           </DialogTitle>
           <DialogDescription>
-            {useOnChain ? (
+            {useLIFI ? (
+              <>Wallet connected. Cross-chain swap via LI.FI routing.</>
+            ) : useGateway ? (
               <>Wallet connected. Swap executes on-chain via Circle Gateway.</>
             ) : (
               <>Submit a swap request. Large swaps may require approval.</>
@@ -188,11 +223,18 @@ export function SwapModal({ open, onOpenChange }: SwapModalProps) {
                   via {result.route === 'uniswap' ? 'Uniswap' : result.route === 'lifi' ? 'LI.FI' : result.route === 'gateway' ? 'Circle Gateway' : result.route}
                 </p>
               )}
-              {useOnChain && gatewaySwap.txHash ? (
+              {useOnChain && activeTxHash ? (
                 <>
-                  <p className="text-xs text-muted-foreground mt-1">via Circle Gateway + Uniswap</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    via {useLIFI ? `LI.FI${lifiSwap.quote?.tool ? ` (${lifiSwap.quote.tool})` : ''}` : 'Circle Gateway + Uniswap'}
+                  </p>
+                  {useLIFI && lifiSwap.quote?.estimate && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Expected output: ~${lifiSwap.quote.estimate.toAmountUSD}
+                    </p>
+                  )}
                   <p className="mt-2 text-xs font-mono text-muted-foreground break-all">
-                    Tx: {gatewaySwap.txHash}
+                    Tx: {activeTxHash}
                   </p>
                 </>
               ) : (
@@ -216,12 +258,13 @@ export function SwapModal({ open, onOpenChange }: SwapModalProps) {
             <div className="text-center">
               <p className="font-medium">Swap Failed</p>
               <p className="text-sm text-muted-foreground">
-                {useOnChain ? gatewaySwap.error : result.message}
+                {useOnChain ? activeError : result.message}
               </p>
             </div>
             <Button
               onClick={() => {
-                if (useOnChain) gatewaySwap.reset();
+                if (useLIFI) lifiSwap.reset();
+                else if (useGateway) gatewaySwap.reset();
                 else setStatus('idle');
               }}
               variant="outline"
@@ -350,11 +393,18 @@ export function SwapModal({ open, onOpenChange }: SwapModalProps) {
                 </div>
               )}
 
+              {/* LI.FI quote estimate */}
+              {useLIFI && lifiSwap.quote?.estimate && lifiSwap.step !== 'idle' && (
+                <div className="flex items-center gap-2 text-xs rounded-md px-3 py-2 bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400">
+                  <span>Expected output: ~${lifiSwap.quote.estimate.toAmountUSD} via {lifiSwap.quote.tool}</span>
+                </div>
+              )}
+
               {/* On-chain step progress */}
               {useOnChain && isOnChainBusy && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>{STEP_LABELS[gatewaySwap.step]}</span>
+                  <span>{useLIFI ? LIFI_STEP_LABELS[lifiSwap.step] : GATEWAY_STEP_LABELS[gatewaySwap.step]}</span>
                 </div>
               )}
             </div>
@@ -374,7 +424,9 @@ export function SwapModal({ open, onOpenChange }: SwapModalProps) {
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     {useOnChain ? 'Swapping...' : 'Submitting...'}
                   </>
-                ) : useOnChain ? (
+                ) : useLIFI ? (
+                  'Swap via LI.FI'
+                ) : useGateway ? (
                   'Swap On-Chain'
                 ) : (
                   'Submit Swap'

@@ -1,3 +1,6 @@
+// Native ETH zero address (used by LI.FI and other protocols)
+export const NATIVE_ETH = '0x0000000000000000000000000000000000000000' as const;
+
 // Circle Gateway Wallet - same address on all chains
 export const GATEWAY_WALLET = '0x77777777Dcc4d5A8B6E418Fd04D8997ef11000eE' as const;
 
