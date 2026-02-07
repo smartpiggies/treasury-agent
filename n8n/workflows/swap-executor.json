@@ -12,7 +12,10 @@
       "name": "Swap Request Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [0, 0],
+      "position": [
+        0,
+        0
+      ],
       "webhookId": "swap-executor",
       "onError": "continueRegularOutput"
     },
@@ -25,18 +28,80 @@
       "name": "Validate Request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [220, 0]
+      "position": [
+        220,
+        0
+      ]
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Create execution record in Appwrite\nconst items = $input.all();\nconst data = items[0]?.json || {};\n\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nif (!endpoint || !apiKey) {\n  return [{ json: { ...data, executionId: 'local-' + Date.now() } }];\n}\n\ntry {\n  const response = await fetch(\n    `${endpoint}/databases/${databaseId}/collections/executions/documents`,\n    {\n      method: 'POST',\n      headers: {\n        'Content-Type': 'application/json',\n        'X-Appwrite-Project': projectId,\n        'X-Appwrite-Key': apiKey,\n      },\n      body: JSON.stringify({\n        documentId: 'unique()',\n        data: {\n          timestamp: data.timestamp,\n          type: 'swap',\n          source_chain: data.sourceChain,\n          dest_chain: data.destChain,\n          source_token: data.sourceToken,\n          dest_token: data.destToken,\n          amount: String(data.amount),\n          status: 'pending',\n          route: data.route,\n          reason: data.reason || '',\n          requester: 'webhook',\n          execution_mode: data.executionMode,\n          is_testnet: data.isTestnet,\n          recipient: data.recipient || '',\n          recipient_ens: data.recipientENS || '',\n        },\n      }),\n    }\n  );\n\n  const result = await response.json();\n\n  return [{\n    json: {\n      ...data,\n      executionId: result.$id || 'local-' + Date.now(),\n    }\n  }];\n} catch (error) {\n  return [{ json: { ...data, executionId: 'local-' + Date.now() } }];\n}"
+        "jsCode": "// Prepare Appwrite document body from validated request\n// Only include attributes that exist in the Appwrite 'executions' collection schema\nconst data = $input.first().json;\n\n// Map internal route names to Appwrite enum values (gateway \u2192 circle)\nconst routeMap = { 'gateway': 'circle', 'uniswap': 'uniswap', 'lifi': 'lifi' };\nconst appwriteRoute = routeMap[data.route] || data.route;\n\nreturn [{\n  json: {\n    ...data,\n    appwriteRoute,\n  }\n}];"
       },
-      "id": "create-execution",
-      "name": "Create Execution Record",
+      "id": "prepare-execution-data",
+      "name": "Prepare Execution Data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [440, 0]
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.APPWRITE_ENDPOINT }}/databases/{{ $env.APPWRITE_DATABASE_ID || 'treasury' }}/collections/executions/documents",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Appwrite-Project",
+              "value": "={{ $env.APPWRITE_PROJECT_ID }}"
+            },
+            {
+              "name": "X-Appwrite-Key",
+              "value": "={{ $env.APPWRITE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"documentId\": \"unique()\",\n  \"data\": {\n    \"timestamp\": \"{{ $json.timestamp }}\",\n    \"type\": \"swap\",\n    \"source_chain\": \"{{ $json.sourceChain }}\",\n    \"dest_chain\": \"{{ $json.destChain }}\",\n    \"source_token\": \"{{ $json.sourceToken.toUpperCase() }}\",\n    \"dest_token\": \"{{ $json.destToken.toUpperCase() }}\",\n    \"amount\": \"{{ $json.amount }}\",\n    \"status\": \"pending\",\n    \"route\": \"{{ $json.appwriteRoute }}\",\n    \"reason\": \"{{ $json.reason || '' }}\",\n    \"requester\": \"webhook\"\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "save-to-appwrite",
+      "name": "Save to Appwrite",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        660,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Extract the Appwrite document ID and merge with original request data\nconst appwriteResponse = $input.first().json;\nconst requestData = $('Prepare Execution Data').first().json;\n\n// If Appwrite returned a $id, use it; otherwise fallback to local ID\nconst executionId = appwriteResponse.$id || 'local-' + Date.now();\n\nreturn [{\n  json: {\n    ...requestData,\n    executionId,\n  }\n}];"
+      },
+      "id": "extract-execution-id",
+      "name": "Extract Execution ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ]
     },
     {
       "parameters": {
@@ -44,7 +109,7 @@
         "url": "={{ $env.DISCORD_WEBHOOK_REPORTS }}",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"embeds\": [{\n    \"title\": \"Swap Request Received\",\n    \"description\": \"A new swap request is pending confirmation.{{ $json.recipientENS ? ' (ENS: ' + $json.recipientENS + ' resolved!)' : '' }}\",\n    \"color\": 3447003,\n    \"fields\": [\n      {\n        \"name\": \"From\",\n        \"value\": \"{{ $json.amount }} {{ $json.sourceToken }} on {{ $json.sourceChain }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"To\",\n        \"value\": \"{{ $json.destToken }} on {{ $json.destChain }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Route\",\n        \"value\": \"{{ $json.route }}{{ $json.isCrossChain ? ' (cross-chain)' : ' (same-chain)' }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Mode\",\n        \"value\": \"{{ $json.executionMode.toUpperCase() }}{{ $json.isTestnet ? ' (testnet)' : '' }}\",\n        \"inline\": true\n      },\n      {{ $json.recipient ? '{\"name\": \"Recipient\", \"value\": \"' + ($json.recipientENS ? $json.recipientENS + ' → ' : '') + '`' + $json.recipient.substring(0,10) + '...`\", \"inline\": true},' : '' }}\n      {\n        \"name\": \"Execution ID\",\n        \"value\": \"`{{ $json.executionId }}`\"\n      }\n    ],\n    \"footer\": {\n      \"text\": \"POST /webhook/swap-confirm to execute or cancel\"\n    },\n    \"timestamp\": \"{{ $json.timestamp }}\"\n  }]\n}",
+        "jsonBody": "={\n  \"embeds\": [{\n    \"title\": \"Swap Request Received\",\n    \"description\": \"A new swap request is pending confirmation.{{ $json.recipientENS ? ' (ENS: ' + $json.recipientENS + ' resolved!)' : '' }}\",\n    \"color\": 3447003,\n    \"fields\": [\n      {\n        \"name\": \"From\",\n        \"value\": \"{{ $json.amount }} {{ $json.sourceToken }} on {{ $json.sourceChain }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"To\",\n        \"value\": \"{{ $json.destToken }} on {{ $json.destChain }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Route\",\n        \"value\": \"{{ $json.route }}{{ $json.isCrossChain ? ' (cross-chain)' : ' (same-chain)' }}\",\n        \"inline\": true\n      },\n      {\n        \"name\": \"Mode\",\n        \"value\": \"{{ $json.executionMode.toUpperCase() }}{{ $json.isTestnet ? ' (testnet)' : '' }}\",\n        \"inline\": true\n      },\n      {{ $json.recipient ? '{\"name\": \"Recipient\", \"value\": \"' + ($json.recipientENS ? $json.recipientENS + ' \u2192 ' : '') + '`' + $json.recipient.substring(0,10) + '...`\", \"inline\": true},' : '' }}\n      {\n        \"name\": \"Execution ID\",\n        \"value\": \"`{{ $json.executionId }}`\"\n      }\n    ],\n    \"footer\": {\n      \"text\": \"POST /webhook/swap-confirm to execute or cancel\"\n    },\n    \"timestamp\": \"{{ $json.timestamp }}\"\n  }]\n}",
         "options": {
           "response": {
             "response": {
@@ -57,19 +122,25 @@
       "name": "Notify Discord",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [660, 0],
+      "position": [
+        1100,
+        0
+      ],
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\n  \"success\": true,\n  \"executionId\": \"{{ $('Create Execution Record').first().json.executionId }}\",\n  \"status\": \"pending\",\n  \"message\": \"Swap request created. POST to /webhook/swap-confirm to execute.\",\n  \"route\": \"{{ $('Create Execution Record').first().json.route }}\",\n  \"executionMode\": \"{{ $('Create Execution Record').first().json.executionMode }}\",\n  \"isTestnet\": {{ $('Create Execution Record').first().json.isTestnet ? 'true' : 'false' }}\n}"
+        "responseBody": "={\n  \"success\": true,\n  \"executionId\": \"{{ $('Extract Execution ID').first().json.executionId }}\",\n  \"status\": \"pending\",\n  \"message\": \"Swap request created. POST to /webhook/swap-confirm to execute.\",\n  \"route\": \"{{ $('Extract Execution ID').first().json.route }}\",\n  \"executionMode\": \"{{ $('Extract Execution ID').first().json.executionMode }}\",\n  \"isTestnet\": {{ $('Extract Execution ID').first().json.isTestnet ? 'true' : 'false' }}\n}"
       },
       "id": "respond",
       "name": "Respond to Webhook",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [880, 0]
+      "position": [
+        1320,
+        0
+      ]
     },
     {
       "parameters": {
@@ -82,20 +153,26 @@
       "name": "Confirm Swap Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [0, 300],
+      "position": [
+        0,
+        300
+      ],
       "webhookId": "swap-confirm",
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Get execution details and prepare for swap\nconst items = $input.all();\nconst body = items[0]?.json?.body || {};\nconst { executionId, action } = body;\n\nif (!executionId) {\n  throw new Error('executionId is required');\n}\n\nif (action === 'cancel') {\n  return [{ json: { executionId, cancelled: true } }];\n}\n\n// Fetch execution from Appwrite\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nif (!endpoint || !apiKey) {\n  throw new Error('Appwrite not configured');\n}\n\nconst response = await fetch(\n  `${endpoint}/databases/${databaseId}/collections/executions/documents/${executionId}`,\n  {\n    headers: {\n      'X-Appwrite-Project': projectId,\n      'X-Appwrite-Key': apiKey,\n    },\n  }\n);\n\nif (!response.ok) {\n  throw new Error(`Execution not found: ${executionId}`);\n}\n\nconst execution = await response.json();\n\nreturn [{\n  json: {\n    executionId,\n    cancelled: false,\n    execution,\n    executionMode: $env.EXECUTION_MODE || 'mock',\n  }\n}];"
+        "jsCode": "// Parse confirm/cancel request - extract executionId and action\nconst body = $input.first().json.body || {};\nconst { executionId, action } = body;\n\nif (!executionId) {\n  throw new Error('executionId is required');\n}\n\nreturn [{\n  json: {\n    executionId,\n    action: action || 'confirm',\n    cancelled: action === 'cancel',\n  }\n}];"
       },
-      "id": "get-execution",
-      "name": "Get Execution Details",
+      "id": "parse-confirm-request",
+      "name": "Parse Confirm Request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [220, 300]
+      "position": [
+        220,
+        300
+      ]
     },
     {
       "parameters": {
@@ -125,7 +202,127 @@
       "name": "Cancelled?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [440, 300]
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.APPWRITE_ENDPOINT }}/databases/{{ $env.APPWRITE_DATABASE_ID || 'treasury' }}/collections/executions/documents/{{ $json.executionId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Appwrite-Project",
+              "value": "={{ $env.APPWRITE_PROJECT_ID }}"
+            },
+            {
+              "name": "X-Appwrite-Key",
+              "value": "={{ $env.APPWRITE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"data\": {\n    \"status\": \"cancelled\",\n    \"completed_at\": \"{{ $now.toISO() }}\"\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "cancel-in-appwrite",
+      "name": "Cancel in Appwrite",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        660,
+        200
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Format cancel response for webhook\nconst executionId = $('Parse Confirm Request').first().json.executionId;\n\nreturn [{\n  json: {\n    cancelled: true,\n    executionId,\n  }\n}];"
+      },
+      "id": "format-cancel-response",
+      "name": "Format Cancel Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"executionId\": \"{{ $json.executionId }}\",\n  \"status\": \"cancelled\"\n}"
+      },
+      "id": "respond-cancel",
+      "name": "Respond Cancel",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.APPWRITE_ENDPOINT }}/databases/{{ $env.APPWRITE_DATABASE_ID || 'treasury' }}/collections/executions/documents/{{ $json.executionId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Appwrite-Project",
+              "value": "={{ $env.APPWRITE_PROJECT_ID }}"
+            },
+            {
+              "name": "X-Appwrite-Key",
+              "value": "={{ $env.APPWRITE_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "fetch-execution-appwrite",
+      "name": "Fetch Execution from Appwrite",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        660,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Merge confirm request data with fetched execution document\nconst execution = $input.first().json;\nconst requestData = $('Parse Confirm Request').first().json;\n\nif (!execution.$id) {\n  throw new Error(`Execution not found: ${requestData.executionId}`);\n}\n\nreturn [{\n  json: {\n    executionId: requestData.executionId,\n    cancelled: false,\n    execution,\n    executionMode: $env.EXECUTION_MODE || 'mock',\n  }\n}];"
+      },
+      "id": "merge-confirm-data",
+      "name": "Merge Confirm Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        400
+      ]
     },
     {
       "parameters": {
@@ -136,18 +333,66 @@
       "name": "Execute Swap",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [660, 400]
+      "position": [
+        1100,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.APPWRITE_ENDPOINT }}/databases/{{ $env.APPWRITE_DATABASE_ID || 'treasury' }}/collections/executions/documents/{{ $json.executionId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Appwrite-Project",
+              "value": "={{ $env.APPWRITE_PROJECT_ID }}"
+            },
+            {
+              "name": "X-Appwrite-Key",
+              "value": "={{ $env.APPWRITE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"data\": {\n    \"status\": \"{{ $json.success ? 'completed' : 'failed' }}\",\n    \"tx_hash\": \"{{ $json.txHash || '' }}\",\n    \"error\": \"{{ $json.error || '' }}\",\n    \"completed_at\": \"{{ $now.toISO() }}\"\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "update-status-appwrite",
+      "name": "Update Status in Appwrite",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1320,
+        400
+      ],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Update execution status in Appwrite\nconst items = $input.all();\nconst data = items[0]?.json || {};\n\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nif (!endpoint || !apiKey || !data.executionId) {\n  return [{ json: data }];\n}\n\ntry {\n  await fetch(\n    `${endpoint}/databases/${databaseId}/collections/executions/documents/${data.executionId}`,\n    {\n      method: 'PATCH',\n      headers: {\n        'Content-Type': 'application/json',\n        'X-Appwrite-Project': projectId,\n        'X-Appwrite-Key': apiKey,\n      },\n      body: JSON.stringify({\n        data: {\n          status: data.success ? 'completed' : 'failed',\n          tx_hash: data.txHash || '',\n          error: data.error || '',\n          mocked: data.mocked || false,\n          completed_at: new Date().toISOString(),\n        },\n      }),\n    }\n  );\n} catch (error) {\n  // Log but don't fail\n}\n\nreturn [{ json: data }];"
+        "jsCode": "// Pass through execution data from Execute Swap for downstream nodes\nconst data = $('Execute Swap').first().json;\n\nreturn [{\n  json: {\n    executionId: data.executionId,\n    success: data.success,\n    txHash: data.txHash,\n    error: data.error,\n    mocked: data.mocked,\n    route: data.route,\n    executionMode: data.executionMode,\n    quote: data.quote,\n  }\n}];"
       },
-      "id": "update-status",
-      "name": "Update Execution Status",
+      "id": "passthrough-status",
+      "name": "Passthrough Status",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [880, 400]
+      "position": [
+        1540,
+        400
+      ]
     },
     {
       "parameters": {
@@ -168,95 +413,213 @@
       "name": "Discord Result",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [1100, 300],
+      "position": [
+        1760,
+        300
+      ],
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\n  \"success\": {{ $json.success }},\n  \"executionId\": \"{{ $json.executionId }}\",\n  \"txHash\": {{ $json.txHash ? '\"' + $json.txHash + '\"' : 'null' }},\n  \"error\": {{ $json.error ? '\"' + $json.error + '\"' : 'null' }},\n  \"mocked\": {{ $json.mocked }},\n  \"route\": \"{{ $json.route }}\",\n  \"executionMode\": \"{{ $json.executionMode }}\"\n}"
+        "responseBody": "={\n  \"success\": {{ $('Passthrough Status').first().json.success ? 'true' : 'false' }},\n  \"executionId\": \"{{ $('Passthrough Status').first().json.executionId }}\",\n  \"txHash\": {{ $('Passthrough Status').first().json.txHash ? '\"' + $('Passthrough Status').first().json.txHash + '\"' : 'null' }},\n  \"error\": {{ $('Passthrough Status').first().json.error ? '\"' + $('Passthrough Status').first().json.error + '\"' : 'null' }},\n  \"mocked\": {{ $('Passthrough Status').first().json.mocked ? 'true' : 'false' }},\n  \"route\": \"{{ $('Passthrough Status').first().json.route }}\",\n  \"executionMode\": \"{{ $('Passthrough Status').first().json.executionMode }}\"\n}"
       },
       "id": "respond-confirm",
       "name": "Respond Confirm",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [1320, 400]
-    },
-    {
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "// Mark as cancelled in Appwrite\nconst items = $input.all();\nconst data = items[0]?.json || {};\n\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nif (endpoint && apiKey && data.executionId) {\n  try {\n    await fetch(\n      `${endpoint}/databases/${databaseId}/collections/executions/documents/${data.executionId}`,\n      {\n        method: 'PATCH',\n        headers: {\n          'Content-Type': 'application/json',\n          'X-Appwrite-Project': projectId,\n          'X-Appwrite-Key': apiKey,\n        },\n        body: JSON.stringify({\n          data: {\n            status: 'cancelled',\n            completed_at: new Date().toISOString(),\n          },\n        }),\n      }\n    );\n  } catch (error) {\n    // Log but don't fail\n  }\n}\n\nreturn [{ json: { cancelled: true, executionId: data.executionId } }];"
-      },
-      "id": "cancel-execution",
-      "name": "Cancel Execution",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [660, 200]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={\n  \"success\": true,\n  \"executionId\": \"{{ $json.executionId }}\",\n  \"status\": \"cancelled\"\n}"
-      },
-      "id": "respond-cancel",
-      "name": "Respond Cancel",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1,
-      "position": [880, 200]
+      "position": [
+        1760,
+        500
+      ]
     }
   ],
   "connections": {
     "Swap Request Webhook": {
       "main": [
-        [{ "node": "Validate Request", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Validate Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Validate Request": {
       "main": [
-        [{ "node": "Create Execution Record", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Prepare Execution Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Create Execution Record": {
+    "Prepare Execution Data": {
       "main": [
-        [{ "node": "Notify Discord", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Save to Appwrite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Appwrite": {
+      "main": [
+        [
+          {
+            "node": "Extract Execution ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Execution ID": {
+      "main": [
+        [
+          {
+            "node": "Notify Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Notify Discord": {
       "main": [
-        [{ "node": "Respond to Webhook", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Confirm Swap Webhook": {
       "main": [
-        [{ "node": "Get Execution Details", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Parse Confirm Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Get Execution Details": {
+    "Parse Confirm Request": {
       "main": [
-        [{ "node": "Cancelled?", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Cancelled?",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Cancelled?": {
       "main": [
-        [{ "node": "Cancel Execution", "type": "main", "index": 0 }],
-        [{ "node": "Execute Swap", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Cancel in Appwrite",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Execution from Appwrite",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Cancel Execution": {
+    "Cancel in Appwrite": {
       "main": [
-        [{ "node": "Respond Cancel", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Format Cancel Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Cancel Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Cancel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Execution from Appwrite": {
+      "main": [
+        [
+          {
+            "node": "Merge Confirm Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Confirm Data": {
+      "main": [
+        [
+          {
+            "node": "Execute Swap",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Execute Swap": {
       "main": [
-        [{ "node": "Update Execution Status", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Update Status in Appwrite",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Update Execution Status": {
+    "Update Status in Appwrite": {
       "main": [
         [
-          { "node": "Discord Result", "type": "main", "index": 0 },
-          { "node": "Respond Confirm", "type": "main", "index": 0 }
+          {
+            "node": "Passthrough Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Passthrough Status": {
+      "main": [
+        [
+          {
+            "node": "Discord Result",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Respond Confirm",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     }

@@ -136,7 +136,7 @@ treasury-agent/
 |----------|---------|---------|
 | **Daily Report** | 9 AM daily | Circle balance + ETH price → Discord |
 | **Price Monitor** | Every 5 min | ETH price alerts when thresholds crossed |
-| **Swap Executor** | Webhook | Validate → Route → Execute → Report |
+| **Swap Executor** | Webhook | Validate → Save to Appwrite → Route → Execute → Update status |
 | **Discord Handler** | Webhook | Parse intents: balance, price, swap, deposit, help |
 | **Weekly Summary** | Monday 8 AM | Aggregate stats → Discord |
 | **Error Handler** | Error trigger | Catch failures → Discord alert |
@@ -149,7 +149,7 @@ treasury-agent/
 | Uniswap | ✅ Working | Price data + atomic Gateway mint→swap via GatewaySwapReceiver |
 | LI.FI | ✅ Working | Cross-chain quotes + execution |
 | ENS | ✅ Working | Resolves .eth names via The Graph |
-| Appwrite | ✅ Working | All 4 collections tested |
+| Appwrite | ✅ Working | All 4 collections tested, swap-executor writes via HTTP Request nodes |
 | Discord | ✅ Working | Both webhooks + command handler |
 | Dashboard | ✅ Working | Wallet connect + deposit flow |
 | n8n | ✅ Running | https://n8n.smartpiggies.cloud |
@@ -307,7 +307,7 @@ See `.env.example` for full list. Key groups:
 
 **Appwrite Database** (ID: `treasury`):
 - `price_history` - Price snapshots from monitoring
-- `executions` - Swap/transfer records with ENS info
+- `executions` - Swap/transfer records (see `docs/swap-executor-appwrite-fix.md` for schema)
 - `alerts` - Alert history
 - `balances` - Treasury balance snapshots
 
