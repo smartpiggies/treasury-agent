@@ -8,7 +8,7 @@
 
 High-level efforts that need human guidance, testing, and decision-making. Remove items when complete.
 
-- [ ] **Test Send Funds from Circle Gateway** - Verify Gateway mint + transfer flow on mainnet
+- [x] **Test Send Funds from Circle Gateway** - Gateway burn+mint working (Arb→Base USDC transfer)
 - [ ] **Test Atomic Gateway Mint + Uniswap Swap** - Deploy GatewaySwapReceiver, test USDC→ETH swap on Arbitrum
 - [x] **Test Uniswap Integration** - Mock + live mode working via SwapRouter02
 - [x] **Test LI.FI Integration** - Mock + live mode working; ERC-20 approval fix deployed
