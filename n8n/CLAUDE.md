@@ -24,7 +24,7 @@ Self-hosted on **Hostinger VPS** via Docker.
 | Weekly Summary | `GA6J1Rwewnd4ouKR` | 5 |
 | Price Monitor | `j4GC43sr9gyIZBzs` | 7 |
 | Daily Report | `ug0pkxlD19gLvirK` | 6 |
-| Swap Executor | `CAZFI4ijkMAPlOgM` | 20 |
+| Swap Executor | `7niYxHklsnqax2c3` | 20 |
 
 **Note:** Old merged "Daily Treasury Report" (`S3X87WkOmf9jnmju`, 31 nodes) can be deleted after verifying new workflows work.
 
@@ -71,7 +71,7 @@ The system supports two execution modes controlled by `EXECUTION_MODE` environme
 - Saves execution records to Appwrite via HTTP Request nodes
 - Perfect for demos and testing workflows
 
-**Note:** The Execute Swap and Validate Request Code nodes still use `fetch()` for API quotes and ENS resolution. These calls fail silently in n8n Code nodes. Fixing them requires converting to HTTP Request nodes (separate task from the Appwrite fix).
+**Note:** The Execute Swap and Validate Request Code nodes use `const fetch = require('node-fetch')` for API quotes and ENS resolution. This works because `node-fetch` is whitelisted via `NODE_FUNCTION_ALLOW_EXTERNAL=ethers,node-fetch` in docker-compose.yml.
 
 ### Live Mode (Mainnet)
 - Requires funded wallet with USDC and ETH for gas
@@ -399,7 +399,7 @@ Severity levels:
 
 ## Workflow Development Tips
 
-- **NEVER use `fetch()` in Code nodes** — it is not available. Use HTTP Request nodes for all HTTP calls, then pass data to Code nodes for formatting. See `docs/swap-executor-appwrite-fix.md`.
+- **`fetch()` is NOT a global** in Code nodes — use `const fetch = require('node-fetch');` at the top of Code nodes that need HTTP calls. This works because `node-fetch` is whitelisted in `NODE_FUNCTION_ALLOW_EXTERNAL`. Alternatively, use HTTP Request nodes for simple API calls.
 - Use **Sticky Notes** to document complex logic
 - Test with **Manual Trigger** before switching to Cron
 - Always check `EXECUTION_MODE` before running swaps

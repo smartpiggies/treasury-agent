@@ -10,18 +10,8 @@ The Appwrite integration is now working — execution records are being created,
 - 4 test records exist in Appwrite (all cancelled/failed, none pending)
 - If the History page is still empty, check the dashboard's Appwrite query logic
 
-### 2. Fix `fetch()` in Execute Swap and Validate Request
-The Appwrite `fetch()` calls are fixed (replaced with HTTP Request nodes), but the Execute Swap and Validate Request Code nodes still use `fetch()` for:
-- **The Graph API** — Uniswap v3 pool queries (used in mock and live mode)
-- **LI.FI quote API** — Cross-chain swap quotes
-- **Circle Gateway API** — Transfer/attestation calls in live mode
-- **ENS resolution** — Resolving .eth names via The Graph
-
-These calls silently fail in n8n Code nodes. Options:
-- Convert to HTTP Request nodes (same pattern as Appwrite fix)
-- Or whitelist `node-fetch` via `NODE_FUNCTION_ALLOW_EXTERNAL` in docker-compose.yml
-
-**Impact:** Mock mode returns mock tx hashes but skips real quotes. Live mode fails on all routes except the `ethers.js` parts (which work because ethers is whitelisted).
+### 2. ~~Fix `fetch()` in Execute Swap and Validate Request~~ ✅ Fixed
+Whitelisted `node-fetch` via `NODE_FUNCTION_ALLOW_EXTERNAL=ethers,node-fetch` in docker-compose.yml and added `const fetch = require('node-fetch')` to both Code nodes. Deployed and tested.
 
 ### 3. Reactivate Price Monitor and Error Handler
 Both are currently inactive on production:
@@ -34,7 +24,18 @@ ssh root@aw.smartpiggies.cloud "docker exec n8n n8n update:workflow --id=kZjokEC
 cd /root/n8n && docker compose restart n8n n8n-worker
 ```
 
-### 4. Test End-to-End Swap (Mock Mode)
+### 4. Switch to Mock Mode Before Testing
+**⚠️ WARNING:** The server is currently running `EXECUTION_MODE=live` (mainnet!). Before running test swaps, switch to mock mode:
+
+```bash
+# On server: edit docker-compose.yml and change EXECUTION_MODE=mock for BOTH services
+ssh root@aw.smartpiggies.cloud
+nano /root/n8n/docker-compose.yml
+# Change EXECUTION_MODE=live → EXECUTION_MODE=mock (in n8n AND n8n-worker)
+cd /root/n8n && docker compose restart n8n n8n-worker
+```
+
+### 5. Test End-to-End Swap (Mock Mode)
 Set `EXECUTION_MODE=mock` on the server, then test a full create → confirm flow:
 
 ```bash
@@ -49,40 +50,42 @@ curl -s -X POST 'https://n8n.smartpiggies.cloud/webhook/swap-confirm' \
   -d '{"executionId":"<ID>","action":"confirm"}'
 ```
 
-Expected: `status: completed` with a `0xmock_...` tx hash. Note: this will fail until the `fetch()` issue (#2 above) is fixed, because the Execute Swap Code node uses `fetch()` for Uniswap subgraph queries even in mock mode.
+Expected: `status: completed` with a `0xmock_...` tx hash and a real Uniswap/LI.FI quote in the response.
 
 ## Medium Priority
 
-### 5. Clean Up docker-compose.yml
+### 6. Clean Up docker-compose.yml and Stale Workflows
 - Remove duplicate `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` line in n8n service
-- Review and remove stale test workflows from n8n (CLI Deploy Test, My workflow, Discord Echo Test)
+- Delete stale test workflows from n8n: "CLI Deploy Test", "My workflow", "Discord Echo Test"
+- Delete old merged "Daily Treasury Report" (`S3X87WkOmf9jnmju`) after verifying new workflows work
 
-### 6. Test Discord Command Flow
+### 7. Test Discord Command Flow
 Verify the Discord → n8n → swap flow works end-to-end:
 - Discord Webhook Handler (`Xm5q2px0HBWYBR5f`) is active
-- Discord Command Handler (`6znPOZjgHW5vqSbW`) is inactive — determine if it's needed or superseded
+- Discord Command Handler (`6znPOZjgHW5vqSbW`) is **inactive** — likely superseded by the Webhook Handler. Determine if it's still needed or can be deleted
 
-### 7. Dashboard Improvements
+### 8. Dashboard Improvements
 - Test WalletConnect integration
+- Verify `VITE_WALLETCONNECT_PROJECT_ID` is set on Appwrite Sites (may be missing — check with `appwrite sites listVariables`)
 - Test Quick Action buttons
 - Verify deposit flow works
 - Show per-chain balances
 
 ## Lower Priority
 
-### 8. Delete `master` Branch on GitHub
+### 9. Delete `master` Branch on GitHub
 The stale `master` branch on GitHub remote should be deleted to prevent future confusion. It only has 2 commits and is not the default branch.
 
 ```bash
 git push origin --delete master
 ```
 
-### 9. Set Up Branch Protection
+### 10. Set Up Branch Protection
 On GitHub repo settings, add branch protection rules for `main`:
 - Require PR reviews before merging
 - Require status checks to pass (once CI is set up)
 
-### 10. Remaining Epics
+### 11. Remaining Epics
 See `CLAUDE.md` for the full epics list, including:
 - Test Send Funds from Circle Gateway
 - Test Atomic Gateway Mint + Uniswap Swap
@@ -99,5 +102,5 @@ See `CLAUDE.md` for the full epics list, including:
 | Dashboard | https://treasury-agent.sites.smartpiggies.cloud |
 | Appwrite | https://aw.smartpiggies.cloud/console |
 | EXECUTION_MODE | `live` (mainnet!) |
-| Swap Executor ID | `CAZFI4ijkMAPlOgM` |
+| Swap Executor ID | `7niYxHklsnqax2c3` |
 | Appwrite executions | 4 records (all cancelled/failed test data) |
