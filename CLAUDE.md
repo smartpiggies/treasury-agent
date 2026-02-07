@@ -2,6 +2,8 @@
 
 > **This is a PUBLIC repository.** Never commit secrets, private keys, API keys, passwords, or credentials. All secrets live on the server (see [Self-Hosted Infrastructure](#self-hosted-infrastructure)).
 
+> **Default branch is `main`.** Do NOT use `master`. The `master` branch is a stale artifact from the initial repo setup and does not contain current code. Always branch from and PR into `main`. See `docs/branch-confusion-postmortem.md` for context.
+
 ## Epics / TODO
 
 High-level efforts that need human guidance, testing, and decision-making. Remove items when complete.

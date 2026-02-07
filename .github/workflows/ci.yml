@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code_changed: ${{ steps.filter.outputs.code_changed }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            code_changed:
+              - 'dashboard/**'
+              - 'n8n/workflows/**'
+              - 'scripts/**'
+              - 'functions/**'
+              - 'discord-bot/**'
+              - 'package.json'
+              - 'package-lock.json'
+
+  build:
+    needs: check-changes
+    if: needs.check-changes.outputs.code_changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --prefix dashboard
+      - run: npm run build --prefix dashboard
