@@ -1,6 +1,29 @@
 // Circle Gateway Wallet - same address on all chains
 export const GATEWAY_WALLET = '0x77777777Dcc4d5A8B6E418Fd04D8997ef11000eE' as const;
 
+// Circle Gateway Minter - same address on all chains
+export const GATEWAY_MINTER = '0x2222222d7164433c4C09B0b0D809a9b52C04C205' as const;
+
+// Uniswap Universal Router addresses per chain
+export const UNIVERSAL_ROUTER: Record<number, `0x${string}`> = {
+  42161: '0xa51afafe0263b40edaef0df8781ea9aa03e381a3', // Arbitrum
+  8453: '0x6ff5693b99212da76ad316178a184ab56d299b43',  // Base
+  1: '0x66a9893cc07d91d95644aedd05d03f95e1dba8af',    // Ethereum
+};
+
+// WETH addresses per chain
+export const WETH_ADDRESSES: Record<number, `0x${string}`> = {
+  42161: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1', // Arbitrum
+  8453: '0x4200000000000000000000000000000000000006',    // Base
+  1: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',     // Ethereum
+};
+
+// GatewaySwapReceiver contract - deployed per chain (update after deployment)
+export const GATEWAY_SWAP_RECEIVER: Record<number, `0x${string}`> = {
+  42161: '0x0000000000000000000000000000000000000000', // Arbitrum - TODO: update after deploy
+  8453: '0x0000000000000000000000000000000000000000',  // Base - TODO: update after deploy
+};
+
 // USDC contract addresses by chain
 export const USDC_ADDRESSES = {
   1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',     // Ethereum
@@ -110,6 +133,72 @@ export function addressToBytes32(address: string): `0x${string}` {
   const cleanAddress = address.toLowerCase().replace('0x', '');
   return `0x${cleanAddress.padStart(64, '0')}` as `0x${string}`;
 }
+
+// Gateway Minter ABI (for calling gatewayMint directly)
+export const GATEWAY_MINTER_ABI = [
+  {
+    name: 'gatewayMint',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'attestation', type: 'bytes' },
+      { name: 'signature', type: 'bytes' },
+    ],
+    outputs: [],
+  },
+] as const;
+
+// GatewaySwapReceiver ABI
+export const GATEWAY_SWAP_RECEIVER_ABI = [
+  {
+    name: 'executeSwap',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'attestation', type: 'bytes' },
+      { name: 'signature', type: 'bytes' },
+      { name: 'commands', type: 'bytes' },
+      { name: 'inputs', type: 'bytes[]' },
+      { name: 'deadline', type: 'uint256' },
+      { name: 'outputToken', type: 'address' },
+      { name: 'recipient', type: 'address' },
+    ],
+    outputs: [],
+  },
+  {
+    name: 'rescueTokens',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'token', type: 'address' }],
+    outputs: [],
+  },
+] as const;
+
+// EIP-712 domain for Gateway TransferSpec signing
+export const GATEWAY_EIP712_DOMAIN = {
+  name: 'GatewayWallet',
+  version: '1',
+} as const;
+
+// EIP-712 TransferSpec type definition
+export const TRANSFER_SPEC_TYPES = {
+  TransferSpec: [
+    { name: 'version', type: 'uint8' },
+    { name: 'sourceDomain', type: 'uint32' },
+    { name: 'destinationDomain', type: 'uint32' },
+    { name: 'sourceContract', type: 'bytes32' },
+    { name: 'destinationContract', type: 'bytes32' },
+    { name: 'sourceToken', type: 'bytes32' },
+    { name: 'destinationToken', type: 'bytes32' },
+    { name: 'sourceDepositor', type: 'bytes32' },
+    { name: 'destinationRecipient', type: 'bytes32' },
+    { name: 'sourceSigner', type: 'bytes32' },
+    { name: 'destinationCaller', type: 'bytes32' },
+    { name: 'value', type: 'uint256' },
+    { name: 'salt', type: 'bytes32' },
+    { name: 'hookData', type: 'bytes' },
+  ],
+} as const;
 
 // USDC has 6 decimals
 export const USDC_DECIMALS = 6;

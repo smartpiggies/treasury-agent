@@ -6,13 +6,16 @@
 
 High-level efforts that need human guidance, testing, and decision-making. Remove items when complete.
 
-- [ ] **Test End-to-End Circle ARC** - Full deposit → balance → transfer flow on mainnet
+- [ ] **Test Send Funds from Circle Gateway** - Verify Gateway mint + transfer flow on mainnet
+- [ ] **Test Atomic Gateway Mint + Uniswap Swap** - Deploy GatewaySwapReceiver, test USDC→ETH swap on Arbitrum
 - [ ] **Test Uniswap Integration** - Same-chain swap execution via v4, verify routing and pricing
 - [ ] **Test LI.FI Integration** - Cross-chain swap end-to-end, verify bridge selection and execution
 - [ ] **Implement & Test ENS** - Resolve .eth names in Discord commands, test with real names
 - [ ] **Improve Dashboard App** - UX polish, additional features, mobile responsiveness
   - [ ] Test and fix WalletConnect integration
   - [ ] Test and fix all Quick Action buttons
+- [ ] **Show Balances on All Chains** - Display per-chain USDC balances (Ethereum, Arbitrum, Base) on both the dashboard and via Discord bot, not just aggregate total
+- [ ] **Fix Deposit-to-Shared-Treasury Flow** - Currently `gateway.deposit()` attributes funds to `msg.sender`, so users can only deposit to their own Gateway balance. Need a mechanism for any address to contribute to the shared treasury (e.g. users send USDC to treasury wallet, then treasury deposits to Gateway; or a proxy contract that deposits on behalf of treasury)
 - [ ] **N-of-M Approval Logic & Testing** - Discord reaction-based consensus for large transactions
 - [ ] **User/Group Registration** - Onboarding flow for families/teams, permission management
 - [ ] **Project Landing Page** - Public-facing page pitching PigAiBank for the hackathon
@@ -143,7 +146,7 @@ treasury-agent/
 | Service | Status | Notes |
 |---------|--------|-------|
 | Circle Gateway | ✅ Working | API format fixed, deposits via dashboard |
-| Uniswap | ⚠️ In Progress | Price data working, adding direct swaps |
+| Uniswap | ✅ Working | Price data + atomic Gateway mint→swap via GatewaySwapReceiver |
 | LI.FI | ✅ Working | Cross-chain quotes + execution |
 | ENS | ✅ Working | Resolves .eth names via The Graph |
 | Appwrite | ✅ Working | All 4 collections tested |
