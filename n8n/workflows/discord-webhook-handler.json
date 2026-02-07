@@ -16,14 +16,94 @@
       }
     },
     {
-      "id": "parse-intent",
-      "name": "Parse Intent",
+      "id": "fetch-balance",
+      "name": "Fetch Balance",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [450, 300],
+      "position": [500, 150],
+      "onError": "continueRegularOutput",
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const content = $input.first().json.body?.content || $input.first().json.content || '';\nconst lowerContent = content.toLowerCase().trim();\nlet intent = 'unknown';\nlet params = {};\n\n// Check for deposit intent first (new!)\nif (lowerContent.includes('deposit')) {\n  intent = 'deposit';\n  // Match patterns like \"deposit $100\", \"deposit 50 USDC\", \"deposit $100 on Base\"\n  const depositMatch = lowerContent.match(/deposit\\s*\\$?(\\d+(?:\\.\\d+)?)\\s*(?:usdc)?(?:\\s+(?:on|to)\\s+(ethereum|arbitrum|base))?/i);\n  if (depositMatch) {\n    params.amount = depositMatch[1];\n    params.chain = depositMatch[2] || 'arbitrum'; // default to Arbitrum\n  }\n} else if (lowerContent.includes('swap') || lowerContent.includes('convert') || lowerContent.includes('exchange')) {\n  intent = 'swap';\n  const swapMatch = lowerContent.match(/(\\d+(?:\\.\\d+)?)\\s*(usdc|eth|usdt)\\s*(?:to|for|into)\\s*(usdc|eth|usdt)/i);\n  if (swapMatch) {\n    params.amount = swapMatch[1];\n    params.fromToken = swapMatch[2].toUpperCase();\n    params.toToken = swapMatch[3].toUpperCase();\n  }\n} else if (lowerContent.includes('send') || lowerContent.includes('transfer')) {\n  intent = 'send';\n  const sendMatch = lowerContent.match(/(\\d+(?:\\.\\d+)?)\\s*(usdc|eth)\\s*(?:to)\\s*([\\w\\.]+)/i);\n  if (sendMatch) {\n    params.amount = sendMatch[1];\n    params.token = sendMatch[2].toUpperCase();\n    params.recipient = sendMatch[3];\n  }\n} else if (lowerContent.includes('balance') || lowerContent.includes('how much')) {\n  intent = 'balance';\n} else if (lowerContent.includes('price') || lowerContent.match(/^(eth|bitcoin|btc)\\s*\\??$/)) {\n  intent = 'price';\n  params.token = lowerContent.includes('btc') || lowerContent.includes('bitcoin') ? 'BTC' : 'ETH';\n} else if (lowerContent.includes('help') || lowerContent === '?') {\n  intent = 'help';\n} else if (lowerContent.match(/^(hi|hello|hey|gm|good morning)/)) {\n  intent = 'greeting';\n}\n\nreturn [{json: {...$input.first().json.body || $input.first().json, intent, params, originalContent: content}}];"
+        "jsCode": "// Read Gateway balances on-chain via RPC\n// Also pass through webhook data so it survives the merge\nconst { ethers } = require('ethers');\n\nconst webhookData = $input.first().json.body || $input.first().json;\n\nconst GATEWAY_WALLET = '0x77777777Dcc4d5A8B6E418Fd04D8997ef11000eE';\nconst USDC = {\n  1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',\n  42161: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',\n  8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',\n};\nconst CHAINS = [\n  { chainId: 1, name: 'Ethereum', domain: 0, rpc: 'https://eth.llamarpc.com' },\n  { chainId: 42161, name: 'Arbitrum', domain: 3, rpc: $env.RPC_ARBITRUM || 'https://arb1.arbitrum.io/rpc' },\n  { chainId: 8453, name: 'Base', domain: 6, rpc: $env.RPC_BASE || 'https://mainnet.base.org' },\n];\n\nconst abi = ['function totalBalance(address token, address depositor) view returns (uint256)'];\nconst depositor = $env.TREASURY_ADDRESS;\n\nlet totalUsdc = 0;\nconst perChain = [];\n\nfor (const chain of CHAINS) {\n  try {\n    const provider = new ethers.JsonRpcProvider(chain.rpc);\n    const contract = new ethers.Contract(GATEWAY_WALLET, abi, provider);\n    const balance = await contract.totalBalance(USDC[chain.chainId], depositor);\n    const amount = parseFloat(ethers.formatUnits(balance, 6));\n    totalUsdc += amount;\n    if (amount > 0) {\n      perChain.push(`${chain.name}: $${amount.toFixed(2)}`);\n    }\n  } catch (e) {\n    // skip failed chain\n  }\n}\n\nconst balanceSummary = totalUsdc > 0\n  ? `Total USDC: $${totalUsdc.toFixed(2)} (${perChain.join(', ') || 'no per-chain data'})`\n  : 'No USDC balances found in Circle Gateway';\n\nreturn [{ json: { balanceSummary, totalUsdc, _webhookData: webhookData } }];"
+      }
+    },
+    {
+      "id": "fetch-eth-price",
+      "name": "Fetch ETH Price",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 450],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "=https://gateway.thegraph.com/api/{{ $env.GRAPH_API_KEY }}/subgraphs/id/{{ $env.GRAPH_SUBGRAPH_ARBITRUM }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{"name": "Content-Type", "value": "application/json"}]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"query\": \"{ bundles(first: 1) { ethPriceUSD } }\"}",
+        "options": {"response": {"response": {"neverError": true}}}
+      }
+    },
+    {
+      "id": "merge-context",
+      "name": "Merge Context",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [750, 300],
+      "parameters": {
+        "mode": "append",
+        "options": {}
+      }
+    },
+    {
+      "id": "build-llm-prompt",
+      "name": "Build LLM Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [950, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const items = $input.all();\n\n// Gather data from the merge\n// Fetch Balance passes through _webhookData, Fetch ETH Price has graph response\nlet webhookData = {};\nlet balanceSummary = 'Balance data unavailable';\nlet ethPrice = 'Price data unavailable';\n\nfor (const item of items) {\n  const d = item.json;\n  // Webhook data passed through from Fetch Balance node\n  if (d._webhookData) {\n    webhookData = d._webhookData;\n  }\n  if (d.balanceSummary) {\n    balanceSummary = d.balanceSummary;\n  }\n  if (d.data?.bundles?.[0]?.ethPriceUSD) {\n    const price = parseFloat(d.data.bundles[0].ethPriceUSD);\n    ethPrice = `$${price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;\n  }\n}\n\nconst userMessage = webhookData.content || '';\nconst author = webhookData.author?.displayName || 'User';\n\nconst systemPrompt = `You are PigAiBank, a friendly AI assistant that manages crypto for families and small teams via Discord. You speak casually and warmly, like a trusted family financial advisor.\n\nCURRENT TREASURY DATA:\n- ${balanceSummary}\n- ETH Price: ${ethPrice}\n- Powered by: Circle Gateway (USDC), Uniswap v4 (swaps), LI.FI (cross-chain)\n\nThe user's display name is \"${author}\".\n\nYou must respond with valid JSON matching this exact schema:\n{\n  \"intent\": \"balance\" | \"price\" | \"swap\" | \"deposit\" | \"send\" | \"help\" | \"chat\",\n  \"reply\": \"your natural language response to the user (use Discord markdown: **bold**, _italic_, etc.)\",\n  \"params\": {\n    // Only include for action intents:\n    // swap: { \"amount\": \"100\", \"fromToken\": \"USDC\", \"toToken\": \"ETH\" }\n    // deposit: { \"amount\": \"100\", \"chain\": \"arbitrum\" }\n    // send: { \"amount\": \"50\", \"token\": \"USDC\", \"recipient\": \"vitalik.eth\" }\n  },\n  \"confidence\": 0.0 to 1.0\n}\n\nINTENT RULES:\n- \"balance\": User asks about treasury balance, funds, holdings, \"how are we doing financially\"\n- \"price\": User asks about token prices (ETH, crypto prices)\n- \"swap\": User wants to exchange one token for another. Extract amount, fromToken, toToken.\n- \"deposit\": User wants to deposit USDC to Circle Gateway. Extract amount and chain (default: arbitrum). Chains: ethereum, arbitrum, base.\n- \"send\": User wants to send/transfer tokens to an address or ENS name. Extract amount, token (default USDC), recipient.\n- \"help\": User asks what you can do, needs guidance\n- \"chat\": Greetings, small talk, questions about PigAiBank, anything that isn't an action\n\nFor balance/price intents: Include the actual data in your reply using the CURRENT TREASURY DATA above. Format numbers nicely.\nFor action intents (swap/deposit/send): Confirm what you understood and say you're processing it. Include extracted params.\nFor chat: Be friendly, mention what you can help with if appropriate.\n\nIMPORTANT: Always respond with ONLY the JSON object. No markdown code fences, no extra text.`;\n\nreturn [{ json: { systemPrompt, userMessage, author, webhookData } }];"
+      }
+    },
+    {
+      "id": "call-openrouter",
+      "name": "Call OpenRouter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1150, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Authorization", "value": "=Bearer {{ $env.OPENROUTER_API_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "X-Title", "value": "PigAiBank Discord Bot"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"moonshotai/kimi-k2.5\",\n  \"messages\": [\n    {\"role\": \"system\", \"content\": {{ JSON.stringify($json.systemPrompt) }}},\n    {\"role\": \"user\", \"content\": {{ JSON.stringify($json.userMessage) }}}\n  ],\n  \"temperature\": 0.7,\n  \"max_tokens\": 4096,\n  \"response_format\": {\"type\": \"json_object\"}\n}",
+        "options": {
+          "response": {"response": {"neverError": true}},
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "parse-llm-response",
+      "name": "Parse LLM Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1350, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const input = $input.first().json;\nconst webhookData = $node['Build LLM Prompt'].json.webhookData || {};\n\n// Default fallback\nconst fallback = {\n  intent: 'chat',\n  reply: \"I'm having trouble thinking right now. Try again in a moment, or type \\\"help\\\" to see what I can do!\",\n  params: {},\n  confidence: 0\n};\n\ntry {\n  // Extract LLM response content\n  const content = input?.choices?.[0]?.message?.content;\n  if (!content) {\n    return [{ json: { ...fallback, ...webhookData } }];\n  }\n\n  // Parse JSON - handle potential markdown fences\n  let cleaned = content.trim();\n  if (cleaned.startsWith('```')) {\n    cleaned = cleaned.replace(/^```(?:json)?\\n?/, '').replace(/\\n?```$/, '');\n  }\n\n  const parsed = JSON.parse(cleaned);\n\n  // Validate required fields\n  const intent = parsed.intent || 'chat';\n  const reply = parsed.reply || fallback.reply;\n  const params = parsed.params || {};\n  const confidence = parsed.confidence || 0.5;\n\n  return [{ json: { intent, reply, params, confidence, ...webhookData } }];\n} catch (e) {\n  // JSON parse failed - try to extract just the reply text\n  const content = input?.choices?.[0]?.message?.content || '';\n  return [{ json: { ...fallback, reply: content || fallback.reply, ...webhookData } }];\n}"
       }
     },
     {
@@ -31,26 +111,10 @@
       "name": "Route by Intent",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
-      "position": [650, 300],
+      "position": [1550, 300],
       "parameters": {
         "rules": {
           "values": [
-            {
-              "outputKey": "balance",
-              "conditions": {
-                "options": {"version": 2, "combinator": "and", "leftValue": "", "typeValidation": "strict", "caseSensitive": true},
-                "combinator": "and",
-                "conditions": [{"id": "balance-cond", "operator": {"type": "string", "operation": "equals"}, "leftValue": "={{ $json.intent }}", "rightValue": "balance"}]
-              }
-            },
-            {
-              "outputKey": "price",
-              "conditions": {
-                "options": {"version": 2, "combinator": "and", "leftValue": "", "typeValidation": "strict", "caseSensitive": true},
-                "combinator": "and",
-                "conditions": [{"id": "price-cond", "operator": {"type": "string", "operation": "equals"}, "leftValue": "={{ $json.intent }}", "rightValue": "price"}]
-              }
-            },
             {
               "outputKey": "swap",
               "conditions": {
@@ -74,14 +138,6 @@
                 "combinator": "and",
                 "conditions": [{"id": "send-cond", "operator": {"type": "string", "operation": "equals"}, "leftValue": "={{ $json.intent }}", "rightValue": "send"}]
               }
-            },
-            {
-              "outputKey": "help",
-              "conditions": {
-                "options": {"version": 2, "combinator": "and", "leftValue": "", "typeValidation": "strict", "caseSensitive": true},
-                "combinator": "and",
-                "conditions": [{"id": "help-cond", "operator": {"type": "string", "operation": "equals"}, "leftValue": "={{ $json.intent }}", "rightValue": "help"}]
-              }
             }
           ]
         },
@@ -89,57 +145,14 @@
       }
     },
     {
-      "id": "get-circle-balance",
-      "name": "Get Gateway Balance (On-Chain)",
+      "id": "llm-reply",
+      "name": "LLM Reply",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [850, 100],
-      "onError": "continueRegularOutput",
+      "position": [1750, 500],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Read Gateway balances on-chain via RPC (instant, no Circle API lag)\nconst { ethers } = require('ethers');\n\nconst GATEWAY_WALLET = '0x77777777Dcc4d5A8B6E418Fd04D8997ef11000eE';\nconst USDC = {\n  1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',\n  42161: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',\n  8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',\n};\nconst CHAINS = [\n  { chainId: 1, domain: 0, rpc: 'https://eth.llamarpc.com' },\n  { chainId: 42161, domain: 3, rpc: $env.RPC_ARBITRUM || 'https://arb1.arbitrum.io/rpc' },\n  { chainId: 8453, domain: 6, rpc: $env.RPC_BASE || 'https://mainnet.base.org' },\n];\n\nconst abi = ['function totalBalance(address token, address depositor) view returns (uint256)'];\nconst depositor = $env.TREASURY_ADDRESS;\n\nconst balances = [];\nfor (const chain of CHAINS) {\n  try {\n    const provider = new ethers.JsonRpcProvider(chain.rpc);\n    const contract = new ethers.Contract(GATEWAY_WALLET, abi, provider);\n    const balance = await contract.totalBalance(USDC[chain.chainId], depositor);\n    balances.push({ domain: chain.domain, balance: ethers.formatUnits(balance, 6) });\n  } catch (e) {\n    balances.push({ domain: chain.domain, balance: '0' });\n  }\n}\n\nreturn [{ json: { balances } }];"
-      }
-    },
-    {
-      "id": "format-balance",
-      "name": "Format Balance Response",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1050, 100],
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "const data = $input.first().json;\nconst author = $node['Parse Intent'].json.author?.displayName || 'there';\n\n// Check for errors\nif (data.error || (data.message && !data.balances)) {\n  return [{json: {reply: `Hey ${author}! Error fetching balance: ${data.message || data.error}`}}];\n}\n\n// Parse Circle Gateway response (new format: balance is string like \"1000.50\")\nconst balances = data.balances || [];\nlet totalUsdc = 0;\nconst chainBalances = [];\nconst domainNames = {0: 'Ethereum', 3: 'Arbitrum', 6: 'Base'};\n\nfor (const bal of balances) {\n  // New API returns 'balance' as formatted string (e.g., \"1000.50\")\n  const amount = parseFloat(bal.balance || bal.amount || '0');\n  totalUsdc += amount;\n  if (amount > 0) {\n    chainBalances.push(`${domainNames[bal.domain] || 'Chain ' + bal.domain}: $${amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`);\n  }\n}\n\nconst balanceList = chainBalances.length > 0 \n  ? chainBalances.join('\\n- ') \n  : 'No USDC balances found (deposit USDC to Gateway first)';\n\nconst totalFormatted = totalUsdc.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});\n\nreturn [{json: {reply: `Hey ${author}! Here's your treasury balance:\\n\\n**Total USDC: $${totalFormatted}**\\n- ${balanceList}\\n\\n_Powered by Circle Gateway_`}}];"
-      }
-    },
-    {
-      "id": "get-eth-price",
-      "name": "Get ETH Price",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [850, 250],
-      "onError": "continueRegularOutput",
-      "parameters": {
-        "method": "POST",
-        "url": "=https://gateway.thegraph.com/api/{{ $env.GRAPH_API_KEY }}/subgraphs/id/{{ $env.GRAPH_SUBGRAPH_ARBITRUM }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [{"name": "Content-Type", "value": "application/json"}]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "{\"query\": \"{ bundles(first: 1) { ethPriceUSD } }\"}",
-        "options": {"response": {"response": {"neverError": true}}}
-      }
-    },
-    {
-      "id": "format-price",
-      "name": "Format Price Response",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1050, 250],
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "const data = $input.first().json;\nconst ethPrice = parseFloat(data?.data?.bundles?.[0]?.ethPriceUSD || 0);\nif (ethPrice === 0) {\n  return [{json: {reply: 'Error fetching price'}}];\n}\nconst formatted = ethPrice.toLocaleString('en-US', {style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2});\nreturn [{json: {reply: `**ETH Price**: ${formatted}\\n\\n_Data from Uniswap v3 on Arbitrum via The Graph_`}}];"
+        "jsCode": "// For non-action intents (balance, price, help, chat, greeting)\n// Use the LLM's reply directly\nconst reply = $input.first().json.reply || 'Something went wrong. Try \"help\" to see what I can do!';\nreturn [{ json: { reply } }];"
       }
     },
     {
@@ -147,10 +160,10 @@
       "name": "Format Swap Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [850, 400],
+      "position": [1750, 100],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const params = $input.first().json.params || {};\nif (!params.amount || !params.fromToken || !params.toToken) {\n  return [{json: {reply: `I couldn't parse your swap request. Try: \"swap 100 USDC to ETH\"`}}];\n}\nreturn [{json: {reply: `**Swap Quote**\\n\\nFrom: ${params.amount} ${params.fromToken}\\nTo: ~${(params.amount / 3450).toFixed(4)} ${params.toToken}\\n\\nRoute: Uniswap v4 (same-chain)\\nEstimated fee: ~$0.50\\n\\n_Reply \"confirm\" to execute or \"cancel\" to abort_`}}];"
+        "jsCode": "const data = $input.first().json;\nconst params = data.params || {};\nconst llmReply = data.reply || '';\n\n// If LLM didn't extract valid params, use its reply as-is\nif (!params.amount || !params.fromToken || !params.toToken) {\n  return [{ json: { reply: llmReply || 'I couldn\\'t parse your swap request. Try: \"swap 100 USDC to ETH\"' } }];\n}\n\n// Use LLM reply (which has conversational framing) but ensure params are available\nreturn [{ json: { reply: llmReply } }];"
       }
     },
     {
@@ -158,10 +171,10 @@
       "name": "Handle Deposit",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [850, 550],
+      "position": [1750, 250],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const params = $input.first().json.params || {};\nconst author = $input.first().json.author?.displayName || 'there';\nconst executionMode = $env.EXECUTION_MODE || 'mock';\n\nif (!params.amount) {\n  return [{json: {reply: `I couldn't parse your deposit request. Try: \"deposit $100\" or \"deposit 50 on Base\"`}}];\n}\n\n// Constants\nconst GATEWAY_WALLET = '0x77777777Dcc4d5A8B6E418Fd04D8997ef11000eE';\nconst USDC_ADDRESSES = {\n  1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',\n  42161: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',\n  8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'\n};\nconst RPC_URLS = {\n  1: 'https://eth.llamarpc.com',\n  42161: $env.RPC_ARBITRUM || 'https://arb1.arbitrum.io/rpc',\n  8453: $env.RPC_BASE || 'https://mainnet.base.org'\n};\nconst EXPLORERS = { 1: 'https://etherscan.io', 42161: 'https://arbiscan.io', 8453: 'https://basescan.org' };\nconst chainIds = { 'ethereum': 1, 'arbitrum': 42161, 'base': 8453 };\nconst chainNames = { 1: 'Ethereum', 42161: 'Arbitrum', 8453: 'Base' };\n\nconst chainName = (params.chain || 'arbitrum').toLowerCase();\nconst chainId = chainIds[chainName] || 42161;\nconst displayChain = chainNames[chainId];\n\nif (executionMode === 'mock') {\n  const mockTxHash = '0xmock_' + Date.now().toString(16) + '_deposit';\n  return [{json: {reply: `**Deposit Simulated (Mock Mode)**\\n\\nAmount: $${params.amount} USDC\\nChain: ${displayChain}\\nTx Hash: \\`${mockTxHash}\\`\\n\\n_Switch to live mode for real deposits._`}}];\n}\n\n// Live mode - require ethers only when needed\ntry {\n  const { ethers } = require('ethers');\n  const privateKey = $env.TREASURY_PRIVATE_KEY;\n  const treasuryAddress = $env.TREASURY_ADDRESS;\n  if (!privateKey || !treasuryAddress) {\n    return [{json: {reply: `**Error**: Treasury wallet not configured.`}}];\n  }\n\n  const provider = new ethers.JsonRpcProvider(RPC_URLS[chainId]);\n  const wallet = new ethers.Wallet(privateKey, provider);\n  const usdcAddress = USDC_ADDRESSES[chainId];\n  const amountParsed = ethers.parseUnits(params.amount.toString(), 6);\n\n  // ABIs\n  const erc20Abi = ['function approve(address,uint256) returns (bool)', 'function allowance(address,address) view returns (uint256)', 'function balanceOf(address) view returns (uint256)'];\n  const gatewayAbi = ['function deposit(address token, uint256 value)'];\n\n  const usdc = new ethers.Contract(usdcAddress, erc20Abi, wallet);\n  const gateway = new ethers.Contract(GATEWAY_WALLET, gatewayAbi, wallet);\n\n  // Check balance\n  const balance = await usdc.balanceOf(wallet.address);\n  if (balance < amountParsed) {\n    const balFormatted = ethers.formatUnits(balance, 6);\n    return [{json: {reply: `**Insufficient Balance**\\n\\nRequested: $${params.amount} USDC\\nAvailable: $${balFormatted} USDC on ${displayChain}\\n\\nDeposit more USDC to the treasury wallet first.`}}];\n  }\n\n  // Check allowance and approve if needed\n  const allowance = await usdc.allowance(wallet.address, GATEWAY_WALLET);\n  let approveTxHash = null;\n  if (allowance < amountParsed) {\n    const approveTx = await usdc.approve(GATEWAY_WALLET, amountParsed);\n    const approveReceipt = await approveTx.wait();\n    approveTxHash = approveReceipt.hash;\n  }\n\n  // Execute deposit to Circle Gateway\n  const depositTx = await gateway.deposit(usdcAddress, amountParsed);\n  const depositReceipt = await depositTx.wait();\n  const depositTxHash = depositReceipt.hash;\n\n  const explorerUrl = `${EXPLORERS[chainId]}/tx/${depositTxHash}`;\n  return [{json: {reply: `**Deposit Successful!**\\n\\nAmount: $${params.amount} USDC\\nChain: ${displayChain}\\nTx: [${depositTxHash.slice(0,10)}...](${explorerUrl})\\n\\n_USDC deposited to Circle Gateway_`}}];\n\n} catch (error) {\n  return [{json: {reply: `**Deposit Failed**\\n\\nError: ${error.message}\\n\\nPlease try again or use the dashboard.`}}];\n}"
+        "jsCode": "const data = $input.first().json;\nconst params = data.params || {};\nconst author = data.author?.displayName || 'there';\nconst executionMode = $env.EXECUTION_MODE || 'mock';\n\nif (!params.amount) {\n  return [{json: {reply: data.reply || 'I couldn\\'t parse your deposit request. Try: \"deposit $100\" or \"deposit 50 on Base\"'}}];\n}\n\n// Constants\nconst GATEWAY_WALLET = '0x77777777Dcc4d5A8B6E418Fd04D8997ef11000eE';\nconst USDC_ADDRESSES = {\n  1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',\n  42161: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',\n  8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'\n};\nconst RPC_URLS = {\n  1: 'https://eth.llamarpc.com',\n  42161: $env.RPC_ARBITRUM || 'https://arb1.arbitrum.io/rpc',\n  8453: $env.RPC_BASE || 'https://mainnet.base.org'\n};\nconst EXPLORERS = { 1: 'https://etherscan.io', 42161: 'https://arbiscan.io', 8453: 'https://basescan.org' };\nconst chainIds = { 'ethereum': 1, 'arbitrum': 42161, 'base': 8453 };\nconst chainNames = { 1: 'Ethereum', 42161: 'Arbitrum', 8453: 'Base' };\n\nconst chainName = (params.chain || 'arbitrum').toLowerCase();\nconst chainId = chainIds[chainName] || 42161;\nconst displayChain = chainNames[chainId];\n\nif (executionMode === 'mock') {\n  const mockTxHash = '0xmock_' + Date.now().toString(16) + '_deposit';\n  return [{json: {reply: `**Deposit Simulated (Mock Mode)**\\n\\nAmount: $${params.amount} USDC\\nChain: ${displayChain}\\nTx Hash: \\`${mockTxHash}\\`\\n\\n_Switch to live mode for real deposits._`}}];\n}\n\n// Live mode\ntry {\n  const { ethers } = require('ethers');\n  const privateKey = $env.TREASURY_PRIVATE_KEY;\n  const treasuryAddress = $env.TREASURY_ADDRESS;\n  if (!privateKey || !treasuryAddress) {\n    return [{json: {reply: '**Error**: Treasury wallet not configured.'}}];\n  }\n\n  const provider = new ethers.JsonRpcProvider(RPC_URLS[chainId]);\n  const wallet = new ethers.Wallet(privateKey, provider);\n  const usdcAddress = USDC_ADDRESSES[chainId];\n  const amountParsed = ethers.parseUnits(params.amount.toString(), 6);\n\n  const erc20Abi = ['function approve(address,uint256) returns (bool)', 'function allowance(address,address) view returns (uint256)', 'function balanceOf(address) view returns (uint256)'];\n  const gatewayAbi = ['function deposit(address token, uint256 value)'];\n\n  const usdc = new ethers.Contract(usdcAddress, erc20Abi, wallet);\n  const gateway = new ethers.Contract(GATEWAY_WALLET, gatewayAbi, wallet);\n\n  const balance = await usdc.balanceOf(wallet.address);\n  if (balance < amountParsed) {\n    const balFormatted = ethers.formatUnits(balance, 6);\n    return [{json: {reply: `**Insufficient Balance**\\n\\nRequested: $${params.amount} USDC\\nAvailable: $${balFormatted} USDC on ${displayChain}`}}];\n  }\n\n  const allowance = await usdc.allowance(wallet.address, GATEWAY_WALLET);\n  if (allowance < amountParsed) {\n    const approveTx = await usdc.approve(GATEWAY_WALLET, amountParsed);\n    await approveTx.wait();\n  }\n\n  const depositTx = await gateway.deposit(usdcAddress, amountParsed);\n  const depositReceipt = await depositTx.wait();\n  const depositTxHash = depositReceipt.hash;\n\n  const explorerUrl = `${EXPLORERS[chainId]}/tx/${depositTxHash}`;\n  return [{json: {reply: `**Deposit Successful!**\\n\\nAmount: $${params.amount} USDC\\nChain: ${displayChain}\\nTx: [${depositTxHash.slice(0,10)}...](${explorerUrl})\\n\\n_USDC deposited to Circle Gateway_`}}];\n} catch (error) {\n  return [{json: {reply: `**Deposit Failed**\\n\\nError: ${error.message}\\n\\nPlease try again or use the dashboard.`}}];\n}"
       }
     },
     {
@@ -169,7 +182,7 @@
       "name": "Check if ENS",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [850, 625],
+      "position": [1750, 375],
       "parameters": {
         "conditions": {
           "options": {"version": 2, "combinator": "and", "leftValue": "", "typeValidation": "loose", "caseSensitive": false},
@@ -184,7 +197,7 @@
       "name": "Resolve ENS Name",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1050, 575],
+      "position": [1950, 325],
       "onError": "continueRegularOutput",
       "parameters": {
         "method": "POST",
@@ -202,7 +215,7 @@
       "name": "Format Send (ENS)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1250, 575],
+      "position": [2150, 325],
       "parameters": {
         "mode": "runOnceForAllItems",
         "jsCode": "const ensData = $input.first().json;\nconst prev = $node['Check if ENS'].json;\nconst params = prev.params || {};\nconst token = params.token || 'USDC';\nconst recipient = params.recipient;\n\nconst addr = ensData?.data?.domains?.[0]?.resolvedAddress?.id;\nif (!addr) {\n  return [{json: {reply: `Could not resolve ENS name **${recipient}**. Please check the name and try again.`}}];\n}\n\nconst ensLabel = `${recipient} -> ${addr.slice(0,6)}...${addr.slice(-4)}`;\nreturn [{json: {reply: `**Send Request**\\n\\nAmount: ${params.amount} ${token}\\nTo: **${recipient}** (${ensLabel})\\n\\nThis will be routed via Circle Gateway for USDC transfers.\\n\\n_Use the dashboard to confirm and execute this transfer._`}}];"
@@ -213,32 +226,10 @@
       "name": "Format Send (Address)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1050, 700],
+      "position": [1950, 450],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const params = $input.first().json.params || {};\nconst token = params.token || 'USDC';\n\nif (!params.amount || !params.recipient) {\n  return [{json: {reply: `I couldn't parse your send request. Try: \"send 50 USDC to vitalik.eth\" or \"send 100 USDC to 0x1234...\"`}}];\n}\n\nreturn [{json: {reply: `**Send Request**\\n\\nAmount: ${params.amount} ${token}\\nTo: **${params.recipient}**\\n\\nThis will be routed via Circle Gateway for USDC transfers.\\n\\n_Use the dashboard to confirm and execute this transfer._`}}];"
-      }
-    },
-    {
-      "id": "format-help",
-      "name": "Format Help Response",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [850, 700],
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "return [{json: {reply: `**PigAiBank Commands**\\n\\n**Check Balance**\\n\"What's our balance?\" or \"balance\"\\n\\n**Check Prices**\\n\"ETH price\" or \"What's the price of ETH?\"\\n\\n**Swap Tokens**\\n\"Swap 100 USDC to ETH\"\\n\\n**Deposit USDC**\\n\"Deposit $100\" or \"Deposit 50 on Base\"\\n\\n**Send Funds**\\n\"Send 50 USDC to vitalik.eth\"\\n\\n_Powered by Circle Gateway, Uniswap, and LI.FI_`}}];"
-      }
-    },
-    {
-      "id": "format-unknown",
-      "name": "Format Unknown Response",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [850, 850],
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "const content = $input.first().json.originalContent || '';\nconst intent = $input.first().json.intent;\nif (intent === 'greeting') {\n  return [{json: {reply: `Hey! I'm PigAiBank. I can help you check balances, prices, execute swaps, and deposit USDC. Try \"balance\" or \"help\" to get started!`}}];\n}\nreturn [{json: {reply: `I'm not sure what you mean by \"${content.substring(0, 50)}\"...\\n\\nTry \"help\" to see what I can do!`}}];"
+        "jsCode": "const data = $input.first().json;\nconst params = data.params || {};\nconst token = params.token || 'USDC';\n\nif (!params.amount || !params.recipient) {\n  return [{json: {reply: data.reply || 'I couldn\\'t parse your send request. Try: \"send 50 USDC to vitalik.eth\" or \"send 100 USDC to 0x1234...\"'}}];\n}\n\nreturn [{json: {reply: `**Send Request**\\n\\nAmount: ${params.amount} ${token}\\nTo: **${params.recipient}**\\n\\nThis will be routed via Circle Gateway for USDC transfers.\\n\\n_Use the dashboard to confirm and execute this transfer._`}}];"
       }
     },
     {
@@ -246,7 +237,7 @@
       "name": "Respond to Webhook",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [1250, 400],
+      "position": [2350, 350],
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ $json }}"
@@ -255,33 +246,38 @@
   ],
   "connections": {
     "Discord Command Webhook": {
-      "main": [[{"node": "Parse Intent", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {"node": "Fetch Balance", "type": "main", "index": 0},
+          {"node": "Fetch ETH Price", "type": "main", "index": 0}
+        ]
+      ]
     },
-    "Parse Intent": {
+    "Fetch Balance": {
+      "main": [[{"node": "Merge Context", "type": "main", "index": 0}]]
+    },
+    "Fetch ETH Price": {
+      "main": [[{"node": "Merge Context", "type": "main", "index": 1}]]
+    },
+    "Merge Context": {
+      "main": [[{"node": "Build LLM Prompt", "type": "main", "index": 0}]]
+    },
+    "Build LLM Prompt": {
+      "main": [[{"node": "Call OpenRouter", "type": "main", "index": 0}]]
+    },
+    "Call OpenRouter": {
+      "main": [[{"node": "Parse LLM Response", "type": "main", "index": 0}]]
+    },
+    "Parse LLM Response": {
       "main": [[{"node": "Route by Intent", "type": "main", "index": 0}]]
     },
     "Route by Intent": {
       "main": [
-        [{"node": "Get Gateway Balance (On-Chain)", "type": "main", "index": 0}],
-        [{"node": "Get ETH Price", "type": "main", "index": 0}],
         [{"node": "Format Swap Response", "type": "main", "index": 0}],
         [{"node": "Handle Deposit", "type": "main", "index": 0}],
         [{"node": "Check if ENS", "type": "main", "index": 0}],
-        [{"node": "Format Help Response", "type": "main", "index": 0}],
-        [{"node": "Format Unknown Response", "type": "main", "index": 0}]
+        [{"node": "LLM Reply", "type": "main", "index": 0}]
       ]
-    },
-    "Get Gateway Balance (On-Chain)": {
-      "main": [[{"node": "Format Balance Response", "type": "main", "index": 0}]]
-    },
-    "Get ETH Price": {
-      "main": [[{"node": "Format Price Response", "type": "main", "index": 0}]]
-    },
-    "Format Balance Response": {
-      "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
-    },
-    "Format Price Response": {
-      "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
     },
     "Format Swap Response": {
       "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
@@ -304,10 +300,7 @@
     "Format Send (Address)": {
       "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
     },
-    "Format Help Response": {
-      "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
-    },
-    "Format Unknown Response": {
+    "LLM Reply": {
       "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
     }
   },
