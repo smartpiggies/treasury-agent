@@ -24,7 +24,7 @@ Self-hosted on **Hostinger VPS** via Docker.
 | Weekly Summary | `GA6J1Rwewnd4ouKR` | 5 |
 | Price Monitor | `j4GC43sr9gyIZBzs` | 7 |
 | Daily Report | `ug0pkxlD19gLvirK` | 6 |
-| Swap Executor | `7niYxHklsnqax2c3` | 20 |
+| Swap Executor | `2O1FMdgygY6BRtpM` | 20 |
 
 **Note:** Old merged "Daily Treasury Report" (`S3X87WkOmf9jnmju`, 31 nodes) can be deleted after verifying new workflows work.
 
@@ -154,8 +154,8 @@ EXECUTION_MODE=mock                         # 'mock' = simulate, 'live' = real m
 GRAPH_API_KEY=                              # Required: from thegraph.com/studio
 
 # Mainnet subgraphs (for live mode)
-GRAPH_SUBGRAPH_BASE=FQ6JYszEKApsBpAmiHesRsd9Ygc6mzmpNRANeVQFYoVX
-GRAPH_SUBGRAPH_ARBITRUM=5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV
+GRAPH_SUBGRAPH_BASE=43Hwfi3dJSoGpyas9VwNoDAv55yjgGrPpNSmbQZArzMG
+GRAPH_SUBGRAPH_ARBITRUM=FbCGRftH4a3yZugY7TnbYgPJVEv2LvMT6oF1fxPe9aJM
 
 # ===================
 # Circle Gateway

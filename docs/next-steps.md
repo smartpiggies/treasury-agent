@@ -101,6 +101,6 @@ See `CLAUDE.md` for the full epics list, including:
 | n8n | https://n8n.smartpiggies.cloud |
 | Dashboard | https://treasury-agent.sites.smartpiggies.cloud |
 | Appwrite | https://aw.smartpiggies.cloud/console |
-| EXECUTION_MODE | `live` (mainnet!) |
-| Swap Executor ID | `7niYxHklsnqax2c3` |
+| EXECUTION_MODE | `mock` |
+| Swap Executor ID | `2O1FMdgygY6BRtpM` |
 | Appwrite executions | 4 records (all cancelled/failed test data) |
