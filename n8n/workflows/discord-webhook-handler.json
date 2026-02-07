@@ -196,7 +196,7 @@
       "onError": "continueRegularOutput",
       "parameters": {
         "method": "POST",
-        "url": "=https://gateway.thegraph.com/api/{{ $env.GRAPH_API_KEY }}/subgraphs/id/5XqPmWe6gjyrJtFn9cLy237i4cWw2j9HcUNNo1dFmrpz",
+        "url": "=https://api.thegraph.com/subgraphs/name/ensdomains/ens",
         "sendHeaders": true,
         "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}]},
         "sendBody": true,
