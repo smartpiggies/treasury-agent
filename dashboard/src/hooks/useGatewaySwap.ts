@@ -13,7 +13,6 @@ import {
   buildTransferSpec,
   signBurnIntent,
   submitTransfer,
-  pollForAttestation,
 } from '@/lib/gateway-transfer';
 import { buildSwapCommands, getPoolFee } from '@/lib/uniswap';
 
@@ -84,11 +83,10 @@ export function useGatewaySwap(): UseGatewaySwapReturn {
 
       const { signature, burnIntent } = await signBurnIntent(walletClient, transferSpec);
 
-      // Step 2: Submit to Circle API and poll for attestation
+      // Step 2: Submit to Circle API (attestation returned synchronously)
       setStep('polling');
 
-      const { transferId } = await submitTransfer(signature, burnIntent);
-      const attestationResult = await pollForAttestation(transferId);
+      const attestationResult = await submitTransfer(signature, burnIntent);
 
       // Step 3: Build swap commands and execute on-chain
       setStep('executing');
