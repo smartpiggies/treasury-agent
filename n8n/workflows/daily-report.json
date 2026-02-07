@@ -20,41 +20,29 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.CIRCLE_GATEWAY_URL || 'https://gateway-api.circle.com' }}/v1/balances",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $env.CIRCLE_API_KEY }}"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"token\": \"USDC\",\n  \"sources\": [\n    { \"domain\": 0, \"depositor\": \"{{ $env.CIRCLE_TREASURY_ADDRESS }}\" },\n    { \"domain\": 3, \"depositor\": \"{{ $env.CIRCLE_TREASURY_ADDRESS }}\" },\n    { \"domain\": 6, \"depositor\": \"{{ $env.CIRCLE_TREASURY_ADDRESS }}\" }\n  ]\n}",
-        "options": {
-          "response": {
-            "response": {
-              "neverError": true
-            }
-          }
-        }
+        "path": "daily-report",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Dashboard Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 200],
+      "webhookId": "daily-report-webhook"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Read Gateway balances on-chain via RPC (instant, no Circle API lag)\nconst { ethers } = require('ethers');\n\nconst GATEWAY_WALLET = '0x77777777Dcc4d5A8B6E418Fd04D8997ef11000eE';\nconst USDC = {\n  1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',\n  42161: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',\n  8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',\n};\nconst CHAINS = [\n  { chainId: 1, domain: 0, rpc: 'https://eth.llamarpc.com' },\n  { chainId: 42161, domain: 3, rpc: $env.RPC_ARBITRUM || 'https://arb1.arbitrum.io/rpc' },\n  { chainId: 8453, domain: 6, rpc: $env.RPC_BASE || 'https://mainnet.base.org' },\n];\n\nconst abi = ['function totalBalance(address token, address depositor) view returns (uint256)'];\nconst depositor = $env.TREASURY_ADDRESS;\n\nconst balances = [];\nfor (const chain of CHAINS) {\n  try {\n    const provider = new ethers.JsonRpcProvider(chain.rpc);\n    const contract = new ethers.Contract(GATEWAY_WALLET, abi, provider);\n    const balance = await contract.totalBalance(USDC[chain.chainId], depositor);\n    balances.push({ domain: chain.domain, balance: ethers.formatUnits(balance, 6) });\n  } catch (e) {\n    balances.push({ domain: chain.domain, balance: '0' });\n  }\n}\n\nreturn [{ json: { balances } }];"
       },
       "id": "fetch-balance",
-      "name": "Fetch Circle Balance",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
+      "name": "Fetch Gateway Balance (On-Chain)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [220, -100],
-      "onError": "continueRegularOutput",
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 1000
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -103,7 +91,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Process merged data from Circle Gateway and The Graph\nconst items = $input.all();\n\nlet balanceData = {};\nlet priceData = {};\n\n// Identify which response is which by structure\nfor (const item of items) {\n  const json = item.json || {};\n  if (json.data?.bundles) {\n    priceData = json;\n  } else if (json.token === 'USDC' || json.balances || json.data?.balances) {\n    balanceData = json;\n  }\n}\n\n// Parse Circle Gateway balance (new format: balance is string like \"1000.50\")\nlet totalUsdc = 0;\nconst chainBalances = [];\nconst domainNames = {\n  0: 'Ethereum',\n  3: 'Arbitrum', \n  6: 'Base'\n};\n\nconst balances = balanceData.balances || balanceData.data?.balances || [];\nfor (const bal of balances) {\n  // New API returns 'balance' as formatted string (e.g., \"1000.50\")\n  const amount = parseFloat(bal.balance || bal.amount || '0');\n  totalUsdc += amount;\n  chainBalances.push({\n    chain: domainNames[bal.domain] || `Domain ${bal.domain}`,\n    amount: amount,\n  });\n}\n\n// Parse ETH price from The Graph bundles\nlet ethPrice = 0;\nif (priceData.data?.bundles?.[0]) {\n  ethPrice = parseFloat(priceData.data.bundles[0].ethPriceUSD) || 0;\n}\n\n// Format for display\nconst formatCurrency = (n) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;\n\nconst chainList = chainBalances.length > 0\n  ? chainBalances.map(c => `  - ${c.chain}: ${formatCurrency(c.amount)}`).join('\\n')\n  : '  No balances found (deposit USDC to Gateway first)';\n\nreturn [{\n  json: {\n    title: 'Daily Treasury Report',\n    date: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),\n    totalBalance: formatCurrency(totalUsdc),\n    totalBalanceRaw: totalUsdc,\n    ethPrice: formatCurrency(ethPrice),\n    ethPriceRaw: ethPrice,\n    chainBreakdown: chainList,\n    chainBalances,\n    timestamp: new Date().toISOString(),\n  }\n}];"
+        "jsCode": "// Process merged data from Circle Gateway and The Graph\nconst items = $input.all();\n\nlet balanceData = {};\nlet priceData = {};\n\n// Identify which response is which by structure\nfor (const item of items) {\n  const json = item.json || {};\n  if (json.data?.bundles) {\n    priceData = json;\n  } else if (json.token === 'USDC' || json.balances || json.data?.balances) {\n    balanceData = json;\n  }\n}\n\n// Parse Circle Gateway balance (new format: balance is string like \"1000.50\")\nlet totalUsdc = 0;\nconst chainBalances = [];\nconst domainNames = {\n  0: 'Ethereum',\n  3: 'Arbitrum', \n  6: 'Base'\n};\n\nconst balances = balanceData.balances || balanceData.data?.balances || [];\nfor (const bal of balances) {\n  // New API returns 'balance' as formatted string (e.g., \"1000.50\")\n  const amount = parseFloat(bal.balance || bal.amount || '0');\n  totalUsdc += amount;\n  chainBalances.push({\n    chain: domainNames[bal.domain] || `Domain ${bal.domain}`,\n    amount: amount,\n  });\n}\n\n// Parse ETH price from The Graph bundles\nlet ethPrice = 0;\nif (priceData.data?.bundles?.[0]) {\n  ethPrice = parseFloat(priceData.data.bundles[0].ethPriceUSD) || 0;\n}\n\n// Format for display\nconst formatCurrency = (n) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;\n\nconst chainList = chainBalances.length > 0\n  ? chainBalances.map(c => `  - ${c.chain}: ${formatCurrency(c.amount)}`).join('\\\\n')\n  : '  No balances found (deposit USDC to Gateway first)';\n\nreturn [{\n  json: {\n    title: 'Daily Treasury Report',\n    date: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),\n    totalBalance: formatCurrency(totalUsdc),\n    totalBalanceRaw: totalUsdc,\n    ethPrice: formatCurrency(ethPrice),\n    ethPriceRaw: ethPrice,\n    chainBreakdown: chainList,\n    chainBalances,\n    timestamp: new Date().toISOString(),\n  }\n}];"
       },
       "id": "format-report",
       "name": "Format Report",
@@ -136,7 +124,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Save daily balance snapshot to Appwrite\nconst items = $input.all();\nconst data = items[0]?.json || {};\n\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nif (!endpoint || !apiKey) {\n  return [{ json: { saved: false, reason: 'Appwrite not configured', data: data } }];\n}\n\ntry {\n  const response = await fetch(\n    `${endpoint}/databases/${databaseId}/collections/balances/documents`,\n    {\n      method: 'POST',\n      headers: {\n        'Content-Type': 'application/json',\n        'X-Appwrite-Project': projectId,\n        'X-Appwrite-Key': apiKey,\n      },\n      body: JSON.stringify({\n        documentId: 'unique()',\n        data: {\n          timestamp: data.timestamp || new Date().toISOString(),\n          total_usd: String(data.totalBalanceRaw || 0),\n          chain_balances: JSON.stringify(data.chainBalances || []),\n          eth_price: String(data.ethPriceRaw || 0),\n          source: 'daily_report',\n        },\n      }),\n    }\n  );\n  const result = await response.json();\n  return [{ json: { saved: true, documentId: result.$id, data: data } }];\n} catch (error) {\n  return [{ json: { saved: false, reason: error.message, data: data } }];\n}"
+        "jsCode": "// Save daily balance snapshot to Appwrite\nconst items = $input.all();\nconst data = items[0]?.json || {};\n\nconst endpoint = $env.APPWRITE_ENDPOINT;\nconst projectId = $env.APPWRITE_PROJECT_ID;\nconst apiKey = $env.APPWRITE_API_KEY;\nconst databaseId = $env.APPWRITE_DATABASE_ID || 'treasury';\n\nif (!endpoint || !apiKey) {\n  return [{ json: { saved: false, reason: 'Appwrite not configured', data: data } }];\n}\n\ntry {\n  const fetch = require('node-fetch');\n  const response = await fetch(\n    `${endpoint}/databases/${databaseId}/collections/balances/documents`,\n    {\n      method: 'POST',\n      headers: {\n        'Content-Type': 'application/json',\n        'X-Appwrite-Project': projectId,\n        'X-Appwrite-Key': apiKey,\n      },\n      body: JSON.stringify({\n        documentId: 'unique()',\n        data: {\n          timestamp: data.timestamp || new Date().toISOString(),\n          total_usd: String(data.totalBalanceRaw || 0),\n          chain_balances: JSON.stringify(data.chainBalances || []),\n          eth_price: String(data.ethPriceRaw || 0),\n          source: 'daily_report',\n        },\n      }),\n    }\n  );\n  const result = await response.json();\n  return [{ json: { saved: true, documentId: result.$id, data: data } }];\n} catch (error) {\n  return [{ json: { saved: false, reason: error.message, data: data } }];\n}"
       },
       "id": "save-appwrite",
       "name": "Save to Appwrite",
@@ -149,12 +137,12 @@
     "Daily 9 AM": {
       "main": [
         [
-          { "node": "Fetch Circle Balance", "type": "main", "index": 0 },
+          { "node": "Fetch Gateway Balance (On-Chain)", "type": "main", "index": 0 },
           { "node": "Fetch ETH Price (The Graph)", "type": "main", "index": 0 }
         ]
       ]
     },
-    "Fetch Circle Balance": {
+    "Fetch Gateway Balance (On-Chain)": {
       "main": [
         [{ "node": "Merge Data", "type": "main", "index": 0 }]
       ]
@@ -174,6 +162,14 @@
         [
           { "node": "Send to Discord", "type": "main", "index": 0 },
           { "node": "Save to Appwrite", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Dashboard Trigger": {
+      "main": [
+        [
+          { "node": "Fetch Gateway Balance (On-Chain)", "type": "main", "index": 0 },
+          { "node": "Fetch ETH Price (The Graph)", "type": "main", "index": 0 }
         ]
       ]
     }
