@@ -68,6 +68,14 @@
               }
             },
             {
+              "outputKey": "send",
+              "conditions": {
+                "options": {"version": 2, "combinator": "and", "leftValue": "", "typeValidation": "strict", "caseSensitive": true},
+                "combinator": "and",
+                "conditions": [{"id": "send-cond", "operator": {"type": "string", "operation": "equals"}, "leftValue": "={{ $json.intent }}", "rightValue": "send"}]
+              }
+            },
+            {
               "outputKey": "help",
               "conditions": {
                 "options": {"version": 2, "combinator": "and", "leftValue": "", "typeValidation": "strict", "caseSensitive": true},
@@ -165,6 +173,61 @@
       }
     },
     {
+      "id": "check-ens",
+      "name": "Check if ENS",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [850, 625],
+      "parameters": {
+        "conditions": {
+          "options": {"version": 2, "combinator": "and", "leftValue": "", "typeValidation": "loose", "caseSensitive": false},
+          "combinator": "and",
+          "conditions": [{"id": "ens-check", "operator": {"type": "string", "operation": "endsWith"}, "leftValue": "={{ $json.params?.recipient || '' }}", "rightValue": ".eth"}]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "resolve-ens",
+      "name": "Resolve ENS Name",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1050, 575],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.thegraph.com/subgraphs/name/ensdomains/ens",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"query\": \"{ domains(where: { name: \\\"{{ $json.params.recipient }}\\\" }) { resolvedAddress { id } } }\" }",
+        "options": {"response": {"response": {"neverError": true}}}
+      }
+    },
+    {
+      "id": "format-send-ens",
+      "name": "Format Send (ENS)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1250, 575],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const ensData = $input.first().json;\nconst prev = $node['Check if ENS'].json;\nconst params = prev.params || {};\nconst token = params.token || 'USDC';\nconst recipient = params.recipient;\n\nconst addr = ensData?.data?.domains?.[0]?.resolvedAddress?.id;\nif (!addr) {\n  return [{json: {reply: `Could not resolve ENS name **${recipient}**. Please check the name and try again.`}}];\n}\n\nconst ensLabel = `${recipient} -> ${addr.slice(0,6)}...${addr.slice(-4)}`;\nreturn [{json: {reply: `**Send Request**\\n\\nAmount: ${params.amount} ${token}\\nTo: **${recipient}** (${ensLabel})\\n\\nThis will be routed via Circle Gateway for USDC transfers.\\n\\n_Use the dashboard to confirm and execute this transfer._`}}];"
+      }
+    },
+    {
+      "id": "format-send-addr",
+      "name": "Format Send (Address)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 700],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const params = $input.first().json.params || {};\nconst token = params.token || 'USDC';\n\nif (!params.amount || !params.recipient) {\n  return [{json: {reply: `I couldn't parse your send request. Try: \"send 50 USDC to vitalik.eth\" or \"send 100 USDC to 0x1234...\"`}}];\n}\n\nreturn [{json: {reply: `**Send Request**\\n\\nAmount: ${params.amount} ${token}\\nTo: **${params.recipient}**\\n\\nThis will be routed via Circle Gateway for USDC transfers.\\n\\n_Use the dashboard to confirm and execute this transfer._`}}];"
+      }
+    },
+    {
       "id": "format-help",
       "name": "Format Help Response",
       "type": "n8n-nodes-base.code",
@@ -211,6 +274,7 @@
         [{"node": "Get ETH Price", "type": "main", "index": 0}],
         [{"node": "Format Swap Response", "type": "main", "index": 0}],
         [{"node": "Handle Deposit", "type": "main", "index": 0}],
+        [{"node": "Check if ENS", "type": "main", "index": 0}],
         [{"node": "Format Help Response", "type": "main", "index": 0}],
         [{"node": "Format Unknown Response", "type": "main", "index": 0}]
       ]
@@ -231,6 +295,21 @@
       "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
     },
     "Handle Deposit": {
+      "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
+    },
+    "Check if ENS": {
+      "main": [
+        [{"node": "Resolve ENS Name", "type": "main", "index": 0}],
+        [{"node": "Format Send (Address)", "type": "main", "index": 0}]
+      ]
+    },
+    "Resolve ENS Name": {
+      "main": [[{"node": "Format Send (ENS)", "type": "main", "index": 0}]]
+    },
+    "Format Send (ENS)": {
+      "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
+    },
+    "Format Send (Address)": {
       "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
     },
     "Format Help Response": {

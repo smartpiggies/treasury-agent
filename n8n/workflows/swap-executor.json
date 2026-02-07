@@ -63,7 +63,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\n  \"success\": true,\n  \"executionId\": \"{{ $json.executionId }}\",\n  \"status\": \"pending\",\n  \"message\": \"Swap request created. POST to /webhook/swap-confirm to execute.\",\n  \"route\": \"{{ $json.route }}\",\n  \"executionMode\": \"{{ $json.executionMode }}\",\n  \"isTestnet\": {{ $json.isTestnet }}\n}"
+        "responseBody": "={\n  \"success\": true,\n  \"executionId\": \"{{ $('Create Execution Record').first().json.executionId }}\",\n  \"status\": \"pending\",\n  \"message\": \"Swap request created. POST to /webhook/swap-confirm to execute.\",\n  \"route\": \"{{ $('Create Execution Record').first().json.route }}\",\n  \"executionMode\": \"{{ $('Create Execution Record').first().json.executionMode }}\",\n  \"isTestnet\": {{ $('Create Execution Record').first().json.isTestnet ? 'true' : 'false' }}\n}"
       },
       "id": "respond",
       "name": "Respond to Webhook",

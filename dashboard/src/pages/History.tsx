@@ -15,6 +15,7 @@ import {
   Query,
   isAppwriteConfigured,
 } from '@/lib/appwrite';
+import { confirmSwap, isN8nConfigured } from '@/lib/api';
 import {
   ArrowRightLeft,
   ExternalLink,
@@ -25,6 +26,7 @@ import {
   RefreshCw,
   AlertTriangle,
   Inbox,
+  Ban,
 } from 'lucide-react';
 import type { ExecutionStatus } from '@/types';
 
@@ -80,10 +82,12 @@ function StatusBadge({ status }: { status: ExecutionStatus }) {
 
 export function History() {
   const appwriteReady = isAppwriteConfigured();
+  const n8nReady = isN8nConfigured();
   const [executions, setExecutions] = useState<Execution[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterType>('all');
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   const fetchExecutions = useCallback(async () => {
     if (!appwriteReady) return;
@@ -129,6 +133,45 @@ export function History() {
 
   const handleFilterChange = (newFilter: FilterType) => {
     setFilter(newFilter);
+  };
+
+  const handleConfirm = async (executionId: string) => {
+    setConfirmingId(executionId);
+    try {
+      const result = await confirmSwap(executionId, 'confirm');
+      if (result.success) {
+        // Update local state to reflect the new status
+        setExecutions((prev) =>
+          prev.map((e) =>
+            e.$id === executionId
+              ? { ...e, status: 'completed' as ExecutionStatus, tx_hash: result.txHash }
+              : e
+          )
+        );
+      } else {
+        setError(result.error || 'Swap execution failed');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to confirm swap');
+    } finally {
+      setConfirmingId(null);
+    }
+  };
+
+  const handleCancel = async (executionId: string) => {
+    setConfirmingId(executionId);
+    try {
+      await confirmSwap(executionId, 'cancel');
+      setExecutions((prev) =>
+        prev.map((e) =>
+          e.$id === executionId ? { ...e, status: 'cancelled' as ExecutionStatus } : e
+        )
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to cancel swap');
+    } finally {
+      setConfirmingId(null);
+    }
   };
 
   return (
@@ -307,11 +350,33 @@ export function History() {
                       </div>
                     </div>
 
-                    {/* Confirmation button - last, full width on mobile */}
-                    {execution.status === 'awaiting_confirmation' && (
-                      <Button size="sm" className="w-full sm:w-auto order-4">
-                        Confirm
-                      </Button>
+                    {/* Confirmation buttons - last, full width on mobile */}
+                    {(execution.status === 'awaiting_confirmation' || execution.status === 'pending') && n8nReady && (
+                      <div className="flex gap-2 w-full sm:w-auto order-4">
+                        <Button
+                          size="sm"
+                          className="flex-1 sm:flex-initial"
+                          onClick={() => handleConfirm(execution.$id)}
+                          disabled={confirmingId === execution.$id}
+                        >
+                          {confirmingId === execution.$id ? (
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                          ) : (
+                            <CheckCircle className="mr-1 h-3 w-3" />
+                          )}
+                          Confirm
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 sm:flex-initial"
+                          onClick={() => handleCancel(execution.$id)}
+                          disabled={confirmingId === execution.$id}
+                        >
+                          <Ban className="mr-1 h-3 w-3" />
+                          Cancel
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </div>

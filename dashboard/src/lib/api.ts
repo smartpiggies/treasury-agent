@@ -76,6 +76,24 @@ export async function getBalance(): Promise<TreasuryBalance> {
   return fetchApi('/get-balance', { method: 'POST' });
 }
 
+export async function confirmSwap(executionId: string, action: 'confirm' | 'cancel' = 'confirm'): Promise<{
+  success: boolean;
+  executionId: string;
+  txHash?: string;
+  error?: string;
+  mocked?: boolean;
+  route?: string;
+  status?: string;
+}> {
+  return fetchApi('/swap-confirm', {
+    method: 'POST',
+    body: JSON.stringify({
+      executionId,
+      ...(action === 'cancel' ? { action: 'cancel' } : {}),
+    }),
+  });
+}
+
 // Check if n8n is configured
 export function isN8nConfigured(): boolean {
   return Boolean(N8N_BASE);
