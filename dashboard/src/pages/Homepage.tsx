@@ -10,6 +10,11 @@ import {
   ArrowRight,
   Github,
   Wallet,
+  CircleDollarSign,
+  Layers,
+  Zap,
+  ChevronRight,
+  AtSign,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -58,6 +63,66 @@ const features: Feature[] = [
     title: "Price Monitoring",
     description:
       "Real-time ETH price tracking via Uniswap v3 subgraph on The Graph network",
+  },
+];
+
+interface Integration {
+  icon: typeof User;
+  name: string;
+  description: string;
+  useCase: string;
+  bounty?: string;
+}
+
+const integrations: Integration[] = [
+  {
+    icon: CircleDollarSign,
+    name: "Circle Gateway",
+    description:
+      "Chain-abstracted USDC with instant cross-chain transfers in under 500ms. One balance across Ethereum, Arbitrum, and Base.",
+    useCase: "Cross-chain USDC",
+    bounty: "$5,000",
+  },
+  {
+    icon: ArrowLeftRight,
+    name: "Uniswap",
+    description:
+      "Same-chain token swaps with real-time price data from The Graph decentralized network. Fastest and cheapest for on-chain trades.",
+    useCase: "Same-chain swaps",
+    bounty: "$5,000",
+  },
+  {
+    icon: Layers,
+    name: "LI.FI",
+    description:
+      "Cross-chain swaps with automatic bridge routing. Finds the best path across chains and tokens in a single transaction.",
+    useCase: "Cross-chain swaps",
+    bounty: "$2,000",
+  },
+  {
+    icon: AtSign,
+    name: "ENS",
+    description:
+      "Human-readable names for wallets and contracts. Send to dad.eth instead of 0x addresses.",
+    useCase: "Name resolution",
+  },
+];
+
+const steps = [
+  {
+    number: "1",
+    label: "You say",
+    text: '"Swap 1 USDC to ETH on Arbitrum"',
+  },
+  {
+    number: "2",
+    label: "Agent routes",
+    text: "Picks Uniswap, LI.FI, or Circle",
+  },
+  {
+    number: "3",
+    label: "Executed on-chain",
+    text: "Transaction confirmed in seconds",
   },
 ];
 
@@ -163,6 +228,42 @@ export function Homepage() {
         </div>
       </section>
 
+      {/* How It Works */}
+      <FadeInSection>
+        <section className="py-16 sm:py-20 border-b border-border/50">
+          <div className="container space-y-10 px-4">
+            <div className="text-center space-y-4">
+              <h2 className="text-3xl md:text-4xl font-bold">How it works</h2>
+              <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
+                Chat naturally. The agent handles routing, execution, and
+                settlement.
+              </p>
+            </div>
+
+            <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-2 max-w-4xl mx-auto">
+              {steps.map((step, i) => (
+                <div key={step.number} className="contents">
+                  <div className="flex flex-col items-center text-center gap-3 flex-1 max-w-xs">
+                    <div className="h-12 w-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-lg font-bold">
+                      {step.number}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">
+                        {step.label}
+                      </p>
+                      <p className="text-base mt-1">{step.text}</p>
+                    </div>
+                  </div>
+                  {i < steps.length - 1 && (
+                    <ChevronRight className="hidden md:block h-6 w-6 text-muted-foreground shrink-0" />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      </FadeInSection>
+
       {/* Features Section */}
       <FadeInSection id="features">
         <section className="py-16 sm:py-20 md:py-24">
@@ -192,6 +293,59 @@ export function Homepage() {
                       <CardDescription className="text-sm">
                         {feature.description}
                       </CardDescription>
+                    </CardHeader>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      </FadeInSection>
+
+      {/* Partner Integrations */}
+      <FadeInSection>
+        <section className="py-16 sm:py-20 md:py-24 bg-gradient-to-br from-accent/5 via-background to-primary/5">
+          <div className="container space-y-12 px-4">
+            <div className="text-center space-y-4">
+              <h2 className="text-3xl md:text-4xl font-bold">
+                Powered by best-in-class infrastructure
+              </h2>
+              <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
+                Four partner integrations targeting $12,000 in bounty prizes
+              </p>
+            </div>
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+              {integrations.map((integration) => {
+                const Icon = integration.icon;
+                return (
+                  <Card
+                    key={integration.name}
+                    className="border-2 border-primary/20 hover:border-primary transition-all duration-300 relative overflow-hidden"
+                  >
+                    <CardHeader className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <Icon className="h-6 w-6 text-primary" />
+                        </div>
+                        {integration.bounty && (
+                          <Badge variant="secondary" className="text-xs font-bold">
+                            {integration.bounty}
+                          </Badge>
+                        )}
+                      </div>
+                      <div>
+                        <CardTitle className="text-xl">
+                          {integration.name}
+                        </CardTitle>
+                        <CardDescription className="text-sm mt-2">
+                          {integration.description}
+                        </CardDescription>
+                      </div>
+                      <Badge variant="outline" className="w-fit text-xs">
+                        <Zap className="h-3 w-3 mr-1" />
+                        {integration.useCase}
+                      </Badge>
                     </CardHeader>
                   </Card>
                 );
