@@ -11,7 +11,7 @@ High-level efforts that need human guidance, testing, and decision-making. Remov
 - [ ] **Test Send Funds from Circle Gateway** - Verify Gateway mint + transfer flow on mainnet
 - [ ] **Test Atomic Gateway Mint + Uniswap Swap** - Deploy GatewaySwapReceiver, test USDC→ETH swap on Arbitrum
 - [x] **Test Uniswap Integration** - Same-chain swap works in mock mode; live mode untested
-- [ ] **Test LI.FI Integration** - Mock mode works; live mode tx reverts (empty calldata bug)
+- [x] **Test LI.FI Integration** - Mock + live mode working; ERC-20 approval fix deployed
 - [x] **Implement & Test ENS** - `pigaibank.eth` resolves correctly in both swap-executor and discord-webhook-handler
 - [ ] **Improve Dashboard App** - UX polish, additional features, mobile responsiveness
   - [ ] Test and fix WalletConnect integration
@@ -181,6 +181,17 @@ Everything runs on a single Hostinger VPS (`aw.smartpiggies.cloud`). Both Appwri
 - **SSH access** → `ssh root@aw.smartpiggies.cloud`
 
 See `n8n/CLAUDE.md` for the full n8n environment variable reference.
+
+### n8n Custom Docker Image
+
+n8n runs a custom Docker image (`n8n-custom:latest`) built from `/root/n8n/Dockerfile`. This is needed because Code nodes require `ethers` and `node-fetch`, which aren't bundled with n8n.
+
+**Key details:**
+- Packages installed in `/opt/custom-modules/node_modules/` (not n8n's own module tree, which fails due to pnpm `catalog:` protocol)
+- `NODE_PATH` env var set for general module resolution
+- **Task runner symlinks required**: `N8N_RUNNERS_DISABLED=true` does NOT actually disable the task runner — Code nodes still execute via the task runner, which has its own module resolution that ignores `NODE_PATH`. The Dockerfile uses `find` to locate the task runner's `node_modules` and symlinks `ethers` + `node-fetch` there.
+- To rebuild: `cd /root/n8n && docker compose build --no-cache && docker compose up -d`
+- Both `n8n` and `n8n-worker` services use the custom image
 
 ### Appwrite CLI Setup
 
