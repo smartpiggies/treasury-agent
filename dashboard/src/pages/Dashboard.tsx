@@ -258,14 +258,12 @@ export function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {isConnected && gateway.isLoading ? (
-                <Loader2 className="h-6 w-6 animate-spin" />
-              ) : isConnected ? (
-                formatCurrency(gateway.totalUsd)
-              ) : isLoading ? (
+              {!isConnected ? (
+                '—'
+              ) : gateway.isLoading ? (
                 <Loader2 className="h-6 w-6 animate-spin" />
               ) : (
-                formatCurrency(treasuryData?.total_usd ?? 0)
+                formatCurrency(gateway.totalUsd)
               )}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -338,7 +336,11 @@ export function Dashboard() {
             <CardDescription>USDC distribution via Circle Gateway</CardDescription>
           </CardHeader>
           <CardContent>
-            {(isConnected ? gateway.isLoading : isLoading) ? (
+            {!isConnected ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                Connect your wallet to view balance by chain
+              </div>
+            ) : gateway.isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
