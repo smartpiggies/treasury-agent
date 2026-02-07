@@ -4,6 +4,10 @@
 
 n8n is the orchestration layer for Treasury Ops Bot. All monitoring, decision-making, and execution flows are implemented as n8n workflows.
 
+## Important: Branch Policy
+
+The default branch is **`main`**. Do NOT use `master` — it is a stale 2-commit branch from the initial repo setup and lacks all production features (GatewaySwapReceiver, live-mode execution, etc.). Always branch from `main`. See `docs/branch-confusion-postmortem.md`.
+
 ## Hosting
 
 Self-hosted on **Hostinger VPS** via Docker.
