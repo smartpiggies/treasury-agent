@@ -90,14 +90,14 @@
     },
     {
       "id": "get-circle-balance",
-      "name": "Get Gateway Balance (On-Chain)",
+      "name": "Get Gateway Balance",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [850, 100],
       "onError": "continueRegularOutput",
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Read Gateway balances on-chain via RPC (instant, no Circle API lag)\nconst { ethers } = require('ethers');\n\nconst GATEWAY_WALLET = '0x77777777Dcc4d5A8B6E418Fd04D8997ef11000eE';\nconst USDC = {\n  1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',\n  42161: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',\n  8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',\n};\nconst CHAINS = [\n  { chainId: 1, domain: 0, rpc: 'https://eth.llamarpc.com' },\n  { chainId: 42161, domain: 3, rpc: $env.RPC_ARBITRUM || 'https://arb1.arbitrum.io/rpc' },\n  { chainId: 8453, domain: 6, rpc: $env.RPC_BASE || 'https://mainnet.base.org' },\n];\n\nconst abi = ['function totalBalance(address token, address depositor) view returns (uint256)'];\nconst depositor = $env.TREASURY_ADDRESS;\n\nconst balances = [];\nfor (const chain of CHAINS) {\n  try {\n    const provider = new ethers.JsonRpcProvider(chain.rpc);\n    const contract = new ethers.Contract(GATEWAY_WALLET, abi, provider);\n    const balance = await contract.totalBalance(USDC[chain.chainId], depositor);\n    balances.push({ domain: chain.domain, balance: ethers.formatUnits(balance, 6) });\n  } catch (e) {\n    balances.push({ domain: chain.domain, balance: '0' });\n  }\n}\n\nreturn [{ json: { balances } }];"
+        "jsCode": "// Fetch Gateway balances from Circle REST API (accurate available balance)\nconst fetch = require('node-fetch');\nconst CIRCLE_GATEWAY_URL = $env.CIRCLE_GATEWAY_URL || 'https://gateway-api.circle.com';\nconst depositor = $env.TREASURY_ADDRESS;\n\nconst sources = [\n  { domain: 0, depositor },\n  { domain: 3, depositor },\n  { domain: 6, depositor },\n];\n\nconst response = await fetch(`${CIRCLE_GATEWAY_URL}/v1/balances`, {\n  method: 'POST',\n  headers: { 'Content-Type': 'application/json' },\n  body: JSON.stringify({ token: 'USDC', sources }),\n});\n\nif (!response.ok) {\n  const body = await response.text();\n  throw new Error(`Circle API error ${response.status}: ${body}`);\n}\n\nconst data = await response.json();\nreturn [{ json: { balances: data.balances, token: data.token } }];"
       }
     },
     {
@@ -262,7 +262,7 @@
     },
     "Route by Intent": {
       "main": [
-        [{"node": "Get Gateway Balance (On-Chain)", "type": "main", "index": 0}],
+        [{"node": "Get Gateway Balance", "type": "main", "index": 0}],
         [{"node": "Get ETH Price", "type": "main", "index": 0}],
         [{"node": "Format Swap Response", "type": "main", "index": 0}],
         [{"node": "Handle Deposit", "type": "main", "index": 0}],
@@ -271,7 +271,7 @@
         [{"node": "Format Unknown Response", "type": "main", "index": 0}]
       ]
     },
-    "Get Gateway Balance (On-Chain)": {
+    "Get Gateway Balance": {
       "main": [[{"node": "Format Balance Response", "type": "main", "index": 0}]]
     },
     "Get ETH Price": {
