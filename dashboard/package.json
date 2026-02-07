@@ -34,6 +34,7 @@
     "recharts": "^2.13.0",
     "tailwind-merge": "^2.5.0",
     "viem": "^2.45.1",
+    "@wagmi/core": "^3.3.2",
     "wagmi": "^3.4.2"
   },
   "devDependencies": {
