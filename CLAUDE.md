@@ -21,7 +21,7 @@ High-level efforts that need human guidance, testing, and decision-making. Remov
 - [ ] **Fix Deposit-to-Shared-Treasury Flow** - Currently `gateway.deposit()` attributes funds to `msg.sender`, so users can only deposit to their own Gateway balance. Need a mechanism for any address to contribute to the shared treasury (e.g. users send USDC to treasury wallet, then treasury deposits to Gateway; or a proxy contract that deposits on behalf of treasury)
 - [ ] **N-of-M Approval Logic & Testing** - Discord reaction-based consensus for large transactions
 - [ ] **User/Group Registration** - Onboarding flow for families/teams, permission management
-- [ ] **Project Landing Page** - Public-facing page pitching PigAiBank for the hackathon
+- [x] **Project Landing Page** - Hero, "How It Works" flow, features grid, partner integrations showcase (Circle, Uniswap, LI.FI, ENS with bounty amounts), and CTA
 
 ## Project Overview
 
