@@ -20,7 +20,7 @@ Self-hosted on **Hostinger VPS** via Docker.
 | Weekly Summary | `GA6J1Rwewnd4ouKR` | 5 |
 | Price Monitor | `j4GC43sr9gyIZBzs` | 7 |
 | Daily Report | `ug0pkxlD19gLvirK` | 6 |
-| Swap Executor | `xSNUGccedYTFUd0D` | 14 |
+| Swap Executor | `CAZFI4ijkMAPlOgM` | 20 |
 
 **Note:** Old merged "Daily Treasury Report" (`S3X87WkOmf9jnmju`, 31 nodes) can be deleted after verifying new workflows work.
 
@@ -62,10 +62,12 @@ The system supports two execution modes controlled by `EXECUTION_MODE` environme
 **IMPORTANT**: LI.FI does NOT support testnets. Always use `mock` mode for testing.
 
 ### Mock Mode (Default)
-- Gets real quotes from LI.FI/Uniswap APIs
+- Gets real quotes from LI.FI/Uniswap APIs (via `fetch()` in Code nodes — currently broken, see note below)
 - Returns simulated transaction hashes (`0xmock_...`)
-- Saves execution records with `mocked: true` flag
+- Saves execution records to Appwrite via HTTP Request nodes
 - Perfect for demos and testing workflows
+
+**Note:** The Execute Swap and Validate Request Code nodes still use `fetch()` for API quotes and ENS resolution. These calls fail silently in n8n Code nodes. Fixing them requires converting to HTTP Request nodes (separate task from the Appwrite fix).
 
 ### Live Mode (Mainnet)
 - Requires funded wallet with USDC and ETH for gas
@@ -298,42 +300,41 @@ const quote = await response.json();
 
 ### Appwrite - Document Operations
 
-```javascript
-// Create document
-await fetch(
-  `${$env.APPWRITE_ENDPOINT}/databases/${databaseId}/collections/${collectionId}/documents`,
-  {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Appwrite-Project': $env.APPWRITE_PROJECT_ID,
-      'X-Appwrite-Key': $env.APPWRITE_API_KEY,
-    },
-    body: JSON.stringify({
-      documentId: 'unique()',
-      data: { /* document fields */ },
-    }),
-  }
-);
+**IMPORTANT:** `fetch()` is NOT available in n8n Code nodes. Always use HTTP Request nodes for Appwrite API calls. See `docs/swap-executor-appwrite-fix.md` for the full story.
 
-// Query documents
-await fetch(
-  `${$env.APPWRITE_ENDPOINT}/databases/${databaseId}/collections/${collectionId}/documents?` +
-  new URLSearchParams({
-    queries: JSON.stringify([
-      `greaterThan("timestamp", "${weekAgo.toISOString()}")`,
-      'orderDesc("timestamp")',
-      'limit(100)',
-    ]),
-  }),
-  {
-    headers: {
-      'X-Appwrite-Project': $env.APPWRITE_PROJECT_ID,
-      'X-Appwrite-Key': $env.APPWRITE_API_KEY,
-    },
-  }
-);
+**Pattern:** Code node (prepare data) → HTTP Request node (call API) → Code node (process response)
+
 ```
+# HTTP Request node configuration for Appwrite
+
+## Create document (POST)
+URL: ={{ $env.APPWRITE_ENDPOINT }}/databases/{{ $env.APPWRITE_DATABASE_ID }}/collections/<collection>/documents
+Method: POST
+Headers:
+  Content-Type: application/json
+  X-Appwrite-Project: ={{ $env.APPWRITE_PROJECT_ID }}
+  X-Appwrite-Key: ={{ $env.APPWRITE_API_KEY }}
+Body (JSON):
+  {
+    "documentId": "unique()",
+    "data": { /* fields matching collection schema exactly */ }
+  }
+
+## Get document (GET)
+URL: ={{ $env.APPWRITE_ENDPOINT }}/databases/{{ $env.APPWRITE_DATABASE_ID }}/collections/<collection>/documents/{{ $json.documentId }}
+Headers: X-Appwrite-Project + X-Appwrite-Key (same as above)
+
+## Update document (PATCH)
+URL: same as GET
+Method: PATCH
+Body: { "data": { /* only changed fields */ } }
+```
+
+**Docker DNS note:** `aw.smartpiggies.cloud` resolves to `127.0.1.1` inside Docker. Fixed with `extra_hosts` in docker-compose.yml pointing to `193.203.164.217`. Both `n8n` and `n8n-worker` services need this.
+
+**Schema validation:** Appwrite returns 400 for unknown attributes. Only send fields that exist in the collection schema. Key gotchas for the `executions` collection:
+- Route enum uses `circle` not `gateway` — map `gateway` → `circle` when saving
+- Fields NOT in schema: `execution_mode`, `is_testnet`, `mocked`, `recipient`, `recipient_ens`
 
 ## Swap Routing Logic
 
@@ -394,12 +395,15 @@ Severity levels:
 
 ## Workflow Development Tips
 
+- **NEVER use `fetch()` in Code nodes** — it is not available. Use HTTP Request nodes for all HTTP calls, then pass data to Code nodes for formatting. See `docs/swap-executor-appwrite-fix.md`.
 - Use **Sticky Notes** to document complex logic
 - Test with **Manual Trigger** before switching to Cron
 - Always check `EXECUTION_MODE` before running swaps
 - Keep credentials in n8n environment, not hardcoded
 - Use HTTP Request nodes instead of Code nodes for simple API calls
 - Error Trigger workflow must be active to catch errors
+- When writing to Appwrite, validate against the collection schema — unknown attributes cause 400 errors
+- For boolean values in Respond to Webhook nodes, use ternary: `{{ $json.flag ? 'true' : 'false' }}`
 
 ## Chain ID Reference
 
