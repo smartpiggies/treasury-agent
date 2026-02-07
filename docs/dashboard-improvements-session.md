@@ -114,7 +114,7 @@ n8n/workflows/
 | History page | ✅ Real data + filters |
 | Analytics page | ✅ Real charts + time ranges |
 | Settings alerts | ✅ View + dismiss |
-| Swap modal | ✅ Submits to n8n |
+| Swap modal | ✅ Smart-routed: Uniswap (same-chain), LI.FI (cross-chain), Circle Gateway (USDC), n8n fallback |
 | Deposit modal | ✅ Already working |
 
 ---
@@ -134,9 +134,8 @@ n8n/workflows/
    - Confirm via Discord or UI
    - Verify completion
 
-3. **Add swap quote preview (optional)**
-   - Before submitting, show estimated output from LI.FI/Uniswap
-   - Makes swap modal more informative
+3. ~~**Add swap quote preview (optional)**~~ ✅ Done
+   - LI.FI quote preview now shown during cross-chain swaps (expected output + bridge tool)
 
 ### Medium Priority
 

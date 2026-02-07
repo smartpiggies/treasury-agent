@@ -5,11 +5,12 @@
 
 ## Summary
 
-| Route | Type | Chains | Amount | Gas Cost | Output | Status |
-|-------|------|--------|--------|----------|--------|--------|
-| [Uniswap](#uniswap--same-chain-swap) | Same-chain swap | Arbitrum | 1 USDC → ETH | $0.007 | 0.00048 WETH | Success |
-| [LI.FI](#lifi--cross-chain-swap) | Cross-chain swap | Arbitrum → Base | 1 USDC → USDC | $0.02 | 0.9975 USDC | Success |
-| [Circle Gateway](#circle-gateway--cross-chain-usdc-transfer) | Cross-chain transfer | Arbitrum → Base | 1 USDC | ~$0 | 1 USDC | Success |
+| Route | Type | Chains | Amount | Gas Cost | Output | Source | Status |
+|-------|------|--------|--------|----------|--------|--------|--------|
+| [Uniswap](#uniswap--same-chain-swap) | Same-chain swap | Arbitrum | 1 USDC → ETH | $0.007 | 0.00048 WETH | n8n | Success |
+| [LI.FI](#lifi--cross-chain-swap) | Cross-chain swap | Arbitrum → Base | 1 USDC → USDC | $0.02 | 0.9975 USDC | n8n | Success |
+| [Circle Gateway](#circle-gateway--cross-chain-usdc-transfer) | Cross-chain transfer | Arbitrum → Base | 1 USDC | ~$0 | 1 USDC | n8n | Success |
+| [LI.FI (Dashboard)](#lifi--dashboard-cross-chain-swap) | Cross-chain swap | Base → Arbitrum | 1 USDC → ETH | — | ~$0.99 | Dashboard | Success |
 
 **Total test cost**: ~$3 in tokens + $0.03 in gas fees.
 
@@ -193,6 +194,41 @@ curl -X POST https://n8n.smartpiggies.cloud/webhook/swap-executor \
 - **EIP-712 signing**: Domain is `{ name: "GatewayWallet", version: "1" }` with no chainId or verifyingContract
 - **API format**: POST body is an **array** `[{ burnIntent, signature }]`, not a single object
 - **destinationContract** must be GatewayMinter (`0x2222...`), not GatewayWallet (`0x7777...`)
+
+---
+
+## LI.FI — Dashboard Cross-Chain Swap
+
+**Bounty**: Best AI x LI.FI Smart App ($2,000)
+
+In addition to the n8n-based LI.FI integration, the dashboard now supports direct on-chain LI.FI swaps for wallet-connected users. This test was executed from the dashboard SwapModal.
+
+### Transaction
+
+| Field | Value |
+|-------|-------|
+| TX Hash | [`0xdf0afa3662ef55dcf46ac205750e29ace068e10f971e6a4bee195921c5722a43`](https://basescan.org/tx/0xdf0afa3662ef55dcf46ac205750e29ace068e10f971e6a4bee195921c5722a43) |
+| Source Chain | Base |
+| Dest Chain | Arbitrum |
+| Input | 1 USDC (Base) |
+| Output | ~$0.99 in ETH (Arbitrum) |
+| Bridge | NEAR |
+| Executed Via | Dashboard SwapModal (wallet-connected) |
+
+### How It Works
+
+1. User opens SwapModal in dashboard with wallet connected
+2. Selects cross-chain swap (Base USDC → Arbitrum ETH) — route auto-detected as LI.FI
+3. Dashboard fetches quote from LI.FI API (`GET /v1/quote`)
+4. Checks ERC-20 allowance for LI.FI Diamond router; approves if needed
+5. User signs transaction in wallet — LI.FI handles bridging and token conversion
+6. Dashboard shows success with tx hash and expected output amount
+
+### Key Technical Details
+
+- **No n8n dependency**: Swap executes entirely client-side via wagmi hooks
+- **Automatic routing**: Dashboard detects cross-chain + token conversion → routes to LI.FI
+- **Same routing logic**: Matches the n8n swap executor's three-way routing (Uniswap / LI.FI / Circle Gateway)
 
 ---
 

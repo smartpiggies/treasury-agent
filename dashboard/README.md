@@ -7,6 +7,7 @@ React dashboard for Treasury Ops Bot — analytics, controls, and monitoring.
 - **Treasury Overview**: Unified balance view across all chains
 - **Analytics**: Charts for price history, volume, performance
 - **Workflow Controls**: Trigger swaps and rebalancing
+- **On-Chain Swaps**: Wallet-connected users can execute swaps directly — auto-routed to Uniswap (same-chain), LI.FI (cross-chain), or Circle Gateway (USDC transfers)
 - **Execution History**: View past transactions and their status
 - **Real-time Alerts**: Live feed of price alerts and notifications
 - **Authentication**: Appwrite-powered login
@@ -44,6 +45,8 @@ VITE_APPWRITE_ENDPOINT=https://your-appwrite.hostinger.com/v1
 VITE_APPWRITE_PROJECT_ID=treasury-ops
 VITE_APPWRITE_DATABASE_ID=treasury
 VITE_N8N_WEBHOOK_BASE=https://your-n8n.hostinger.com/webhook
+VITE_WALLETCONNECT_PROJECT_ID=<from cloud.walletconnect.com>
+VITE_LIFI_INTEGRATOR_ID=treasury-ops-bot  # optional, has default
 ```
 
 ### Development
@@ -75,18 +78,27 @@ dashboard/
 │   │   │   ├── PriceChart.tsx
 │   │   │   ├── AlertFeed.tsx
 │   │   │   └── ExecutionHistory.tsx
-│   │   └── controls/         # Workflow trigger components
-│   │       ├── SwapForm.tsx
-│   │       └── RebalanceButton.tsx
+│   │   ├── controls/         # Workflow trigger components
+│   │   │   ├── SwapForm.tsx
+│   │   │   └── RebalanceButton.tsx
+│   │   ├── swap/
+│   │   │   └── SwapModal.tsx        # Smart-routed swap modal
+│   │   └── wallet/
+│   │       └── ConnectButton.tsx     # RainbowKit wallet connect
 │   │
 │   ├── lib/
 │   │   ├── appwrite.ts       # Appwrite client setup
 │   │   ├── api.ts            # n8n webhook calls
+│   │   ├── contracts.ts      # Contract addresses and ABIs
+│   │   ├── lifi.ts           # LI.FI quote API helpers
+│   │   ├── wagmi.ts          # Wagmi/RainbowKit config
 │   │   └── utils.ts          # Helpers
 │   │
 │   ├── hooks/
 │   │   ├── useAuth.ts        # Authentication hook
 │   │   ├── useBalance.ts     # Treasury balance data
+│   │   ├── useGatewaySwap.ts # Circle Gateway + Uniswap swap hook
+│   │   ├── useLIFISwap.ts    # LI.FI cross-chain swap hook
 │   │   └── usePriceHistory.ts
 │   │
 │   ├── pages/
@@ -156,6 +168,19 @@ const refreshBalance = async () => {
   return response.json();
 };
 ```
+
+### Swap Routing
+
+The SwapModal automatically selects the best execution path based on chain/token selections:
+
+| Condition | Route | Execution |
+|-----------|-------|-----------|
+| Same chain, USDC source | Gateway + Uniswap | On-chain via wallet |
+| Cross chain, USDC→USDC | Circle Gateway | On-chain via wallet |
+| Cross chain, token swap | LI.FI | On-chain via wallet |
+| Wallet not connected | n8n webhook | Server-side via n8n |
+
+When a wallet is connected, swaps execute directly on-chain using `useGatewaySwap` or `useLIFISwap` hooks. Without a wallet, requests fall back to the n8n `/swap-executor` webhook.
 
 ### Triggering Workflows
 
