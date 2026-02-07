@@ -78,11 +78,6 @@ export function ConnectButton() {
                     className="inline-flex items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium shadow-sm hover:bg-accent transition-colors"
                   >
                     {account.displayName}
-                    {account.displayBalance && (
-                      <span className="ml-2 text-muted-foreground">
-                        {account.displayBalance}
-                      </span>
-                    )}
                   </button>
                 </div>
               );
