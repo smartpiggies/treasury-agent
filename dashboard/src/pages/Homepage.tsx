@@ -15,6 +15,10 @@ import {
   Zap,
   ChevronRight,
   AtSign,
+  AlertTriangle,
+  ShieldCheck,
+  Bot,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -227,6 +231,135 @@ export function Homepage() {
           </div>
         </div>
       </section>
+
+      {/* Problem Statement */}
+      <FadeInSection>
+        <section className="py-16 sm:py-20 border-b border-border/50 bg-gradient-to-b from-background to-destructive/5">
+          <div className="container space-y-10 px-4 max-w-4xl mx-auto">
+            <div className="text-center space-y-4">
+              <div className="inline-flex items-center gap-2 rounded-full bg-destructive/10 px-4 py-1.5 text-sm font-medium text-destructive">
+                <AlertTriangle className="h-4 w-4" />
+                The Problem
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold">
+                Crypto has an accessibility problem
+              </h2>
+              <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
+                Families, teams, and small organizations want to participate in
+                crypto, but the tooling wasn't built for them.
+              </p>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-6">
+              <div className="rounded-lg border-2 border-destructive/20 bg-card p-6 space-y-3">
+                <p className="font-semibold">Complex interfaces</p>
+                <p className="text-sm text-muted-foreground">
+                  Dozens of chains, bridges, and protocols to understand.
+                  One wrong click can mean lost funds.
+                </p>
+              </div>
+              <div className="rounded-lg border-2 border-destructive/20 bg-card p-6 space-y-3">
+                <p className="font-semibold">Single points of failure</p>
+                <p className="text-sm text-muted-foreground">
+                  One person holds the keys, manages the wallets, and makes all
+                  the decisions. No transparency, no shared control.
+                </p>
+              </div>
+              <div className="rounded-lg border-2 border-destructive/20 bg-card p-6 space-y-3">
+                <p className="font-semibold">Technical jargon</p>
+                <p className="text-sm text-muted-foreground">
+                  Gas fees, slippage, bridging, RPCs &mdash; the learning curve
+                  excludes everyone who isn't already deep in crypto.
+                </p>
+              </div>
+              <div className="rounded-lg border-2 border-destructive/20 bg-card p-6 space-y-3">
+                <p className="font-semibold">No group coordination</p>
+                <p className="text-sm text-muted-foreground">
+                  No simple way for families or teams to jointly manage funds,
+                  approve transactions, or see what's happening.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </FadeInSection>
+
+      {/* Solution Statement */}
+      <FadeInSection>
+        <section className="py-16 sm:py-20 border-b border-border/50 bg-gradient-to-b from-primary/5 to-background">
+          <div className="container space-y-10 px-4 max-w-4xl mx-auto">
+            <div className="text-center space-y-4">
+              <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
+                <ShieldCheck className="h-4 w-4" />
+                The Solution
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold">
+                Make crypto conversational
+              </h2>
+              <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
+                PigAiBank is a Discord-native AI agent that manages crypto for
+                your group. No wallets to install, no jargon to learn &mdash;
+                just chat.
+              </p>
+            </div>
+
+            {/* Chat example */}
+            <div className="rounded-xl border-2 border-primary/20 bg-card p-6 sm:p-8 max-w-2xl mx-auto space-y-4 font-mono text-sm">
+              <div className="flex items-start gap-3">
+                <span className="shrink-0 rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-bold text-blue-500">Mom</span>
+                <p>"@PigAiBank what's our balance?"</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
+                  <Bot className="inline h-3 w-3 mr-0.5 -mt-0.5" />AI
+                </span>
+                <p>"You have <strong>$12,340</strong> total &mdash; $8,200 in stablecoins and $4,140 in ETH across Arbitrum and Base."</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-bold text-emerald-500">Dad</span>
+                <p>"@PigAiBank send $100 to alex.eth"</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
+                  <Bot className="inline h-3 w-3 mr-0.5 -mt-0.5" />AI
+                </span>
+                <p>"Resolved alex.eth &rarr; 0x742d... Sending $100 USDC now. Done!"</p>
+              </div>
+            </div>
+
+            {/* Solution pillars */}
+            <div className="grid sm:grid-cols-3 gap-6 text-center">
+              <div className="space-y-3">
+                <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <MessageSquare className="h-6 w-6 text-primary" />
+                </div>
+                <p className="font-semibold">Chat to transact</p>
+                <p className="text-sm text-muted-foreground">
+                  Discord is the interface. Plain English in, on-chain execution out. No DeFi expertise required.
+                </p>
+              </div>
+              <div className="space-y-3">
+                <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Users className="h-6 w-6 text-primary" />
+                </div>
+                <p className="font-semibold">Family consensus</p>
+                <p className="text-sm text-muted-foreground">
+                  N-of-M approvals via Discord reactions. Everyone sees decisions. No one is locked out.
+                </p>
+              </div>
+              <div className="space-y-3">
+                <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Eye className="h-6 w-6 text-primary" />
+                </div>
+                <p className="font-semibold">Complexity hidden</p>
+                <p className="text-sm text-muted-foreground">
+                  Smart routing picks the best path automatically &mdash; Uniswap, LI.FI, or Circle Gateway. Users just see results.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </FadeInSection>
 
       {/* How It Works */}
       <FadeInSection>
