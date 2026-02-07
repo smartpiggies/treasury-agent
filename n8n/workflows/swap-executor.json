@@ -308,7 +308,8 @@
       "position": [
         660,
         400
-      ]
+      ],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {

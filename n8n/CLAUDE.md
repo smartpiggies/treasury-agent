@@ -20,7 +20,7 @@ Self-hosted on **Hostinger VPS** via Docker.
 | Weekly Summary | `GA6J1Rwewnd4ouKR` | 5 |
 | Price Monitor | `j4GC43sr9gyIZBzs` | 7 |
 | Daily Report | `ug0pkxlD19gLvirK` | 6 |
-| Swap Executor | `ZR4TxTnvPIDzzpTo` | 20 |
+| Swap Executor | `CAZFI4ijkMAPlOgM` | 20 |
 
 **Note:** Old merged "Daily Treasury Report" (`S3X87WkOmf9jnmju`, 31 nodes) can be deleted after verifying new workflows work.
 
