@@ -150,11 +150,11 @@ treasury-agent/
 |---------|--------|-------|
 | Circle Gateway | ✅ Working | API format fixed, deposits via dashboard |
 | Uniswap | ✅ Working | Price data + atomic Gateway mint→swap via GatewaySwapReceiver |
-| LI.FI | ✅ Working | Cross-chain quotes + execution |
+| LI.FI | ✅ Working | Cross-chain quotes + execution via n8n and dashboard |
 | ENS | ✅ Working | Resolves .eth names via The Graph |
 | Appwrite | ✅ Working | All 4 collections tested, swap-executor writes via HTTP Request nodes |
 | Discord | ✅ Working | Both webhooks + command handler |
-| Dashboard | ✅ Working | Wallet connect + deposit flow |
+| Dashboard | ✅ Working | Wallet connect + deposit + smart-routed swaps (Uniswap/LI.FI/Gateway) |
 | n8n | ✅ Running | https://n8n.smartpiggies.cloud |
 
 ## Key Commands

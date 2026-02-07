@@ -100,7 +100,7 @@ treasury-agent/
 | **Live Balance** | Real-time USDC balance from Circle Gateway across Ethereum, Arbitrum, Base |
 | **ETH Price** | Live price from Uniswap v3 via The Graph |
 | **Deposit USDC** | Connect wallet with RainbowKit, deposit to Circle Gateway |
-| **Request Swap** | Submit swap requests to n8n for execution |
+| **Request Swap** | Smart-routed swaps: Uniswap (same-chain), LI.FI (cross-chain), Circle Gateway (USDC transfers). Wallet-connected users execute on-chain directly; otherwise falls back to n8n |
 | **Execution History** | View past transactions with status filters |
 | **Analytics** | Price charts and volume trends with 7D/30D/90D views |
 | **Alert Management** | View and dismiss price/execution alerts |
@@ -111,7 +111,7 @@ treasury-agent/
 | Partner | Integration | Prize Target |
 |---------|-------------|--------------|
 | **Circle** | Gateway API for unified USDC balance | Chain Abstracted USDC Apps, Treasury Systems |
-| **LI.FI** | Cross-chain swaps + Composer | AI × LI.FI Smart App |
+| **LI.FI** | Cross-chain swaps via n8n + dashboard direct execution | AI × LI.FI Smart App |
 | **Uniswap** | v4 subgraph + direct swaps | Agentic Finance |
 | **ENS** | Human-readable name resolution (pigaibank.eth) | Integrate ENS |
 
