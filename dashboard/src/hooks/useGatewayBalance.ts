@@ -29,7 +29,7 @@ export function useGatewayBalance(): GatewayBalance {
   const contracts = SUPPORTED_CHAINS.map((chainId) => ({
     address: GATEWAY_WALLET,
     abi: GATEWAY_WALLET_ABI,
-    functionName: 'totalBalance' as const,
+    functionName: 'availableBalance' as const,
     args: [USDC_ADDRESSES[chainId], address!] as const,
     chainId,
   }));
