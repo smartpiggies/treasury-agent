@@ -10,9 +10,9 @@ High-level efforts that need human guidance, testing, and decision-making. Remov
 
 - [ ] **Test Send Funds from Circle Gateway** - Verify Gateway mint + transfer flow on mainnet
 - [ ] **Test Atomic Gateway Mint + Uniswap Swap** - Deploy GatewaySwapReceiver, test USDC→ETH swap on Arbitrum
-- [ ] **Test Uniswap Integration** - Same-chain swap execution via v4, verify routing and pricing
-- [ ] **Test LI.FI Integration** - Cross-chain swap end-to-end, verify bridge selection and execution
-- [ ] **Implement & Test ENS** - Resolve .eth names in Discord commands, test with real names
+- [x] **Test Uniswap Integration** - Same-chain swap works in mock mode; live mode untested
+- [ ] **Test LI.FI Integration** - Mock mode works; live mode tx reverts (empty calldata bug)
+- [x] **Implement & Test ENS** - `pigaibank.eth` resolves correctly in both swap-executor and discord-webhook-handler
 - [ ] **Improve Dashboard App** - UX polish, additional features, mobile responsiveness
   - [ ] Test and fix WalletConnect integration
   - [ ] Test and fix all Quick Action buttons

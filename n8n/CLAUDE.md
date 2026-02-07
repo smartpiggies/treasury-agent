@@ -24,9 +24,10 @@ Self-hosted on **Hostinger VPS** via Docker.
 | Weekly Summary | `GA6J1Rwewnd4ouKR` | 5 |
 | Price Monitor | `j4GC43sr9gyIZBzs` | 7 |
 | Daily Report | `ug0pkxlD19gLvirK` | 6 |
-| Swap Executor | `2O1FMdgygY6BRtpM` | 20 |
+| Swap Executor | `RpW4tXVpLsanUIuz` | 20 |
+| Discord Webhook Handler | `frQ3SBYKt29guNhe` | — |
 
-**Note:** Old merged "Daily Treasury Report" (`S3X87WkOmf9jnmju`, 31 nodes) can be deleted after verifying new workflows work.
+**Note:** Workflow IDs change on each reimport. Verify current IDs with `docker exec n8n n8n list:workflow`. Old merged "Daily Treasury Report" (`S3X87WkOmf9jnmju`) can be deleted.
 
 ## Architecture: 5 Separate Workflows
 
