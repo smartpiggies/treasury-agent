@@ -13,6 +13,7 @@ High-level efforts that need human guidance, testing, and decision-making. Remov
 - [x] **Test Uniswap Integration** - Mock + live mode working via SwapRouter02
 - [x] **Test LI.FI Integration** - Mock + live mode working; ERC-20 approval fix deployed
 - [x] **Implement & Test ENS** - `pigaibank.eth` resolves correctly in both swap-executor and discord-webhook-handler
+- [x] **Document Live Test Results** - All three routes (Uniswap, LI.FI, Gateway) documented with mainnet tx hashes for bounty judges (`docs/live-test-results.md`)
 - [ ] **Improve Dashboard App** - UX polish, additional features, mobile responsiveness
   - [ ] Test and fix WalletConnect integration
   - [ ] Test and fix all Quick Action buttons
