@@ -18,10 +18,10 @@ export const WETH_ADDRESSES: Record<number, `0x${string}`> = {
   1: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',     // Ethereum
 };
 
-// GatewaySwapReceiver contract - deployed per chain (update after deployment)
+// GatewaySwapReceiver contract - deployed per chain
 export const GATEWAY_SWAP_RECEIVER: Record<number, `0x${string}`> = {
-  42161: '0x0000000000000000000000000000000000000000', // Arbitrum - TODO: update after deploy
-  8453: '0x0000000000000000000000000000000000000000',  // Base - TODO: update after deploy
+  42161: '0xa598bE23E395BF2b8b7238921BEBfB7fB5970750', // Arbitrum
+  8453: '0xC68aE0C28deC41762F85BB5B55Ffc743aCc1B0D3',  // Base
 };
 
 // USDC contract addresses by chain
