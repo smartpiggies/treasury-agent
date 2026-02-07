@@ -95,6 +95,7 @@ src/
 │   ├── useBalance.ts    # Fetch treasury balance
 │   └── usePriceHistory.ts
 ├── pages/
+│   ├── Homepage.tsx          # Landing page (hero, how-it-works, features, partner integrations, CTA)
 │   ├── Dashboard.tsx
 │   ├── Analytics.tsx
 │   ├── History.tsx

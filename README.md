@@ -113,6 +113,7 @@ treasury-agent/
 | **Circle** | Gateway API for unified USDC balance | Chain Abstracted USDC Apps, Treasury Systems |
 | **LI.FI** | Cross-chain swaps + Composer | AI × LI.FI Smart App |
 | **Uniswap** | v4 subgraph + direct swaps | Agentic Finance |
+| **ENS** | Human-readable name resolution (pigaibank.eth) | Integrate ENS |
 
 ## Live URLs
 
