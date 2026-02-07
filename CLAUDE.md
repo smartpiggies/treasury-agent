@@ -10,7 +10,7 @@ High-level efforts that need human guidance, testing, and decision-making. Remov
 
 - [ ] **Test Send Funds from Circle Gateway** - Verify Gateway mint + transfer flow on mainnet
 - [ ] **Test Atomic Gateway Mint + Uniswap Swap** - Deploy GatewaySwapReceiver, test USDC→ETH swap on Arbitrum
-- [x] **Test Uniswap Integration** - Same-chain swap works in mock mode; live mode untested
+- [x] **Test Uniswap Integration** - Mock + live mode working via SwapRouter02
 - [x] **Test LI.FI Integration** - Mock + live mode working; ERC-20 approval fix deployed
 - [x] **Implement & Test ENS** - `pigaibank.eth` resolves correctly in both swap-executor and discord-webhook-handler
 - [ ] **Improve Dashboard App** - UX polish, additional features, mobile responsiveness
