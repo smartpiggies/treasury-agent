@@ -115,11 +115,12 @@ export async function signBurnIntent(
   return { signature, burnIntent };
 }
 
-/** Submit a signed burn intent to Circle Gateway API */
+/** Submit a signed burn intent to Circle Gateway API.
+ *  The Gateway returns attestation + signature synchronously (no polling needed). */
 export async function submitTransfer(
   signature: `0x${string}`,
   burnIntent: BurnIntent,
-): Promise<{ transferId: string }> {
+): Promise<{ attestation: `0x${string}`; signature: `0x${string}` }> {
   // Circle API expects an array of { burnIntent, signature } objects
   // bigints must be serialized as strings
   const requests = [{ burnIntent, signature }];
@@ -137,38 +138,14 @@ export async function submitTransfer(
     throw new Error(`Circle API error ${response.status}: ${body}`);
   }
 
-  return response.json();
-}
+  const data = await response.json();
 
-/** Poll Circle Gateway for attestation until ready */
-export async function pollForAttestation(
-  transferId: string,
-  maxAttempts = 60,
-  intervalMs = 2000,
-): Promise<{ attestation: `0x${string}`; signature: `0x${string}` }> {
-  for (let i = 0; i < maxAttempts; i++) {
-    const response = await fetch(`${CIRCLE_GATEWAY_URL}/v1/transfer/${transferId}`);
-
-    if (!response.ok) {
-      throw new Error(`Circle API error ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    if (data.attestation && data.signature) {
-      return {
-        attestation: data.attestation as `0x${string}`,
-        signature: data.signature as `0x${string}`,
-      };
-    }
-
-    if (data.status === 'failed') {
-      throw new Error(`Transfer failed: ${data.error || 'unknown error'}`);
-    }
-
-    // Wait before next poll
-    await new Promise(resolve => setTimeout(resolve, intervalMs));
+  if (!data.attestation || !data.signature) {
+    throw new Error(`Circle API did not return attestation: ${JSON.stringify(data)}`);
   }
 
-  throw new Error('Attestation polling timed out');
+  return {
+    attestation: data.attestation as `0x${string}`,
+    signature: data.signature as `0x${string}`,
+  };
 }

@@ -53,6 +53,7 @@ export async function requestSwap(params: SwapRequest): Promise<{
   executionId: string;
   status: 'pending' | 'awaiting_confirmation';
   message: string;
+  route: string;
 }> {
   return fetchApi('/swap-executor', {
     method: 'POST',

@@ -14,7 +14,7 @@ import { requestSwap } from '@/lib/api';
 import { useAccount } from 'wagmi';
 import { useGatewaySwap, type SwapStep } from '@/hooks/useGatewaySwap';
 import { USDC_ADDRESSES, WETH_ADDRESSES } from '@/lib/contracts';
-import { Loader2, ArrowDown, CheckCircle, XCircle, Wallet } from 'lucide-react';
+import { Loader2, ArrowDown, CheckCircle, XCircle, Wallet, Route } from 'lucide-react';
 import type { Chain, Token } from '@/types';
 
 interface SwapModalProps {
@@ -53,6 +53,36 @@ function getTokenAddress(token: Token, chainId: number): `0x${string}` {
   return WETH_ADDRESSES[chainId] as `0x${string}`;
 }
 
+function getExpectedRoute(
+  srcChain: Chain,
+  destChain: Chain,
+  srcToken: Token,
+  destToken: Token,
+): { route: string; label: string; description: string } {
+  const isCrossChain = srcChain !== destChain;
+  const isUsdcOnly = srcToken === 'USDC' && destToken === 'USDC';
+
+  if (isCrossChain && isUsdcOnly) {
+    return {
+      route: 'circle',
+      label: 'Circle Gateway',
+      description: 'Instant USDC transfer across chains (<500ms)',
+    };
+  }
+  if (isCrossChain) {
+    return {
+      route: 'lifi',
+      label: 'LI.FI',
+      description: 'Cross-chain swap with automatic bridge routing',
+    };
+  }
+  return {
+    route: 'uniswap',
+    label: 'Uniswap',
+    description: 'Same-chain swap via Uniswap v3',
+  };
+}
+
 export function SwapModal({ open, onOpenChange }: SwapModalProps) {
   const { address, isConnected } = useAccount();
   const gatewaySwap = useGatewaySwap();
@@ -64,7 +94,7 @@ export function SwapModal({ open, onOpenChange }: SwapModalProps) {
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
   const [status, setStatus] = useState<Status>('idle');
-  const [result, setResult] = useState<{ id?: string; message?: string; txHash?: string }>({});
+  const [result, setResult] = useState<{ id?: string; message?: string; txHash?: string; route?: string }>({});
 
   // Determine if on-chain path should be used
   const useOnChain = isConnected && sourceToken === 'USDC';
@@ -72,6 +102,8 @@ export function SwapModal({ open, onOpenChange }: SwapModalProps) {
 
   const sourceChainId = CHAINS.find(c => c.value === sourceChain)?.chainId || 42161;
   const destChainId = CHAINS.find(c => c.value === destChain)?.chainId || 42161;
+
+  const expectedRoute = getExpectedRoute(sourceChain, destChain, sourceToken, destToken);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,7 +132,7 @@ export function SwapModal({ open, onOpenChange }: SwapModalProps) {
           amount,
           reason: reason || undefined,
         });
-        setResult({ id: response.executionId, message: response.message });
+        setResult({ id: response.executionId, message: response.message, route: response.route });
         setStatus('success');
       } catch (err) {
         setResult({ message: err instanceof Error ? err.message : 'Swap request failed' });
@@ -151,10 +183,18 @@ export function SwapModal({ open, onOpenChange }: SwapModalProps) {
               <p className="font-medium">
                 {useOnChain ? 'Swap Executed' : 'Swap Request Submitted'}
               </p>
-              {useOnChain && gatewaySwap.txHash ? (
-                <p className="mt-2 text-xs font-mono text-muted-foreground break-all">
-                  Tx: {gatewaySwap.txHash}
+              {result.route && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  via {result.route === 'uniswap' ? 'Uniswap' : result.route === 'lifi' ? 'LI.FI' : result.route === 'gateway' ? 'Circle Gateway' : result.route}
                 </p>
+              )}
+              {useOnChain && gatewaySwap.txHash ? (
+                <>
+                  <p className="text-xs text-muted-foreground mt-1">via Circle Gateway + Uniswap</p>
+                  <p className="mt-2 text-xs font-mono text-muted-foreground break-all">
+                    Tx: {gatewaySwap.txHash}
+                  </p>
+                </>
               ) : (
                 <>
                   <p className="text-sm text-muted-foreground">{result.message}</p>
@@ -287,6 +327,13 @@ export function SwapModal({ open, onOpenChange }: SwapModalProps) {
                     ))}
                   </select>
                 </div>
+              </div>
+
+              {/* Route indicator */}
+              <div className="flex items-center gap-2 text-xs rounded-md px-3 py-2 bg-muted/50">
+                <Route className="h-3 w-3 text-muted-foreground" />
+                <span className="font-medium">Route: {expectedRoute.label}</span>
+                <span className="text-muted-foreground">&mdash; {expectedRoute.description}</span>
               </div>
 
               {/* Reason (only for n8n path) */}
