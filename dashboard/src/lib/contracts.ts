@@ -180,10 +180,15 @@ export const GATEWAY_EIP712_DOMAIN = {
   version: '1',
 } as const;
 
-// EIP-712 TransferSpec type definition
-export const TRANSFER_SPEC_TYPES = {
+// EIP-712 type definitions for Circle Gateway BurnIntent signing
+export const BURN_INTENT_TYPES = {
+  BurnIntent: [
+    { name: 'maxBlockHeight', type: 'uint256' },
+    { name: 'maxFee', type: 'uint256' },
+    { name: 'spec', type: 'TransferSpec' },
+  ],
   TransferSpec: [
-    { name: 'version', type: 'uint8' },
+    { name: 'version', type: 'uint32' },
     { name: 'sourceDomain', type: 'uint32' },
     { name: 'destinationDomain', type: 'uint32' },
     { name: 'sourceContract', type: 'bytes32' },

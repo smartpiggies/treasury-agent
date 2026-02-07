@@ -100,7 +100,7 @@ export function SwapModal({ open, onOpenChange }: SwapModalProps) {
           amount,
           reason: reason || undefined,
         });
-        setResult({ id: response.id, message: response.message });
+        setResult({ id: response.executionId, message: response.message });
         setStatus('success');
       } catch (err) {
         setResult({ message: err instanceof Error ? err.message : 'Swap request failed' });

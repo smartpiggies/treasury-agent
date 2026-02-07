@@ -50,7 +50,7 @@ export async function triggerPriceCheck(): Promise<{
 }
 
 export async function requestSwap(params: SwapRequest): Promise<{
-  id: string;
+  executionId: string;
   status: 'pending' | 'awaiting_confirmation';
   message: string;
 }> {

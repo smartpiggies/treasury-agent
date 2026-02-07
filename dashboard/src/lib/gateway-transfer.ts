@@ -1,8 +1,9 @@
 import type { WalletClient } from 'viem';
 import {
   GATEWAY_WALLET,
+  GATEWAY_MINTER,
   GATEWAY_EIP712_DOMAIN,
-  TRANSFER_SPEC_TYPES,
+  BURN_INTENT_TYPES,
   CIRCLE_DOMAINS,
   USDC_ADDRESSES,
   addressToBytes32,
@@ -10,6 +11,12 @@ import {
 } from './contracts';
 
 const CIRCLE_GATEWAY_URL = import.meta.env.VITE_CIRCLE_GATEWAY_URL || 'https://gateway-api.circle.com';
+
+// Default max fee: $2.01 USDC (6 decimals)
+const DEFAULT_MAX_FEE = 2_010000n;
+
+// maxUint256 = no block height expiration
+const MAX_UINT256 = 2n ** 256n - 1n;
 
 export interface TransferSpecParams {
   sourceChainId: number;
@@ -38,6 +45,12 @@ export interface TransferSpec {
   hookData: `0x${string}`;
 }
 
+export interface BurnIntent {
+  maxBlockHeight: bigint;
+  maxFee: bigint;
+  spec: TransferSpec;
+}
+
 /** Build a TransferSpec struct for Circle Gateway EIP-712 signing */
 export function buildTransferSpec(params: TransferSpecParams): TransferSpec {
   const sourceDomain = CIRCLE_DOMAINS[params.sourceChainId as keyof typeof CIRCLE_DOMAINS];
@@ -54,15 +67,14 @@ export function buildTransferSpec(params: TransferSpecParams): TransferSpec {
     throw new Error(`No USDC address for chain: source=${params.sourceChainId}, dest=${params.destChainId}`);
   }
 
-  const gatewayBytes32 = addressToBytes32(GATEWAY_WALLET);
   const salt = `0x${Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b => b.toString(16).padStart(2, '0')).join('')}` as `0x${string}`;
 
   return {
     version: 1,
     sourceDomain,
     destinationDomain: destDomain,
-    sourceContract: gatewayBytes32,
-    destinationContract: gatewayBytes32,
+    sourceContract: addressToBytes32(GATEWAY_WALLET),
+    destinationContract: addressToBytes32(GATEWAY_MINTER),
     sourceToken: addressToBytes32(sourceUsdc),
     destinationToken: addressToBytes32(destUsdc),
     sourceDepositor: addressToBytes32(params.depositorAddress),
@@ -79,49 +91,45 @@ export function buildTransferSpec(params: TransferSpecParams): TransferSpec {
 export async function signBurnIntent(
   walletClient: WalletClient,
   transferSpec: TransferSpec,
-): Promise<`0x${string}`> {
+  maxBlockHeight: bigint = MAX_UINT256,
+  maxFee: bigint = DEFAULT_MAX_FEE,
+): Promise<{ signature: `0x${string}`; burnIntent: BurnIntent }> {
   const account = walletClient.account;
   if (!account) throw new Error('No account connected');
+
+  const burnIntent: BurnIntent = {
+    maxBlockHeight,
+    maxFee,
+    spec: transferSpec,
+  };
 
   // EIP-712 domain has no chainId per Circle spec
   const signature = await walletClient.signTypedData({
     account,
     domain: GATEWAY_EIP712_DOMAIN,
-    types: TRANSFER_SPEC_TYPES,
-    primaryType: 'TransferSpec',
-    message: transferSpec,
+    types: BURN_INTENT_TYPES,
+    primaryType: 'BurnIntent',
+    message: burnIntent,
   });
 
-  return signature;
+  return { signature, burnIntent };
 }
 
-/** Submit a signed transfer to Circle Gateway API */
+/** Submit a signed burn intent to Circle Gateway API */
 export async function submitTransfer(
   signature: `0x${string}`,
-  transferSpec: TransferSpec,
+  burnIntent: BurnIntent,
 ): Promise<{ transferId: string }> {
+  // Circle API expects an array of { burnIntent, signature } objects
+  // bigints must be serialized as strings
+  const requests = [{ burnIntent, signature }];
+
   const response = await fetch(`${CIRCLE_GATEWAY_URL}/v1/transfer`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      transferSpec: {
-        version: transferSpec.version,
-        sourceDomain: transferSpec.sourceDomain,
-        destinationDomain: transferSpec.destinationDomain,
-        sourceContract: transferSpec.sourceContract,
-        destinationContract: transferSpec.destinationContract,
-        sourceToken: transferSpec.sourceToken,
-        destinationToken: transferSpec.destinationToken,
-        sourceDepositor: transferSpec.sourceDepositor,
-        destinationRecipient: transferSpec.destinationRecipient,
-        sourceSigner: transferSpec.sourceSigner,
-        destinationCaller: transferSpec.destinationCaller,
-        value: transferSpec.value.toString(),
-        salt: transferSpec.salt,
-        hookData: transferSpec.hookData,
-      },
-      signature,
-    }),
+    body: JSON.stringify(requests, (_key, value) =>
+      typeof value === 'bigint' ? value.toString() : value,
+    ),
   });
 
   if (!response.ok) {

@@ -1,5 +1,7 @@
 import { useState, useCallback } from 'react';
-import { useAccount, useWriteContract, useWalletClient } from 'wagmi';
+import { useAccount, useWriteContract } from 'wagmi';
+import { getWalletClient } from '@wagmi/core';
+import { config } from '@/lib/wagmi';
 import {
   GATEWAY_SWAP_RECEIVER,
   GATEWAY_SWAP_RECEIVER_ABI,
@@ -36,7 +38,6 @@ export interface GatewaySwapParams {
 
 export function useGatewaySwap(): UseGatewaySwapReturn {
   const { address, chainId } = useAccount();
-  const { data: walletClient } = useWalletClient();
   const { writeContractAsync } = useWriteContract();
 
   const [step, setStep] = useState<SwapStep>('idle');
@@ -44,7 +45,17 @@ export function useGatewaySwap(): UseGatewaySwapReturn {
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
 
   const sign = useCallback(async (params: GatewaySwapParams) => {
-    if (!address || !walletClient || !chainId) {
+    if (!address || !chainId) {
+      setError('Wallet not connected');
+      setStep('error');
+      return;
+    }
+
+    // Fetch wallet client imperatively to avoid stale reactive state
+    let walletClient;
+    try {
+      walletClient = await getWalletClient(config);
+    } catch {
       setError('Wallet not connected');
       setStep('error');
       return;
@@ -71,12 +82,12 @@ export function useGatewaySwap(): UseGatewaySwapReturn {
         destinationCaller: receiverAddress,
       });
 
-      const signature = await signBurnIntent(walletClient, transferSpec);
+      const { signature, burnIntent } = await signBurnIntent(walletClient, transferSpec);
 
       // Step 2: Submit to Circle API and poll for attestation
       setStep('polling');
 
-      const { transferId } = await submitTransfer(signature, transferSpec);
+      const { transferId } = await submitTransfer(signature, burnIntent);
       const attestationResult = await pollForAttestation(transferId);
 
       // Step 3: Build swap commands and execute on-chain
@@ -126,7 +137,7 @@ export function useGatewaySwap(): UseGatewaySwapReturn {
       setError(err instanceof Error ? err.message : 'Swap failed');
       setStep('error');
     }
-  }, [address, walletClient, chainId, writeContractAsync]);
+  }, [address, chainId, writeContractAsync]);
 
   const reset = useCallback(() => {
     setStep('idle');
