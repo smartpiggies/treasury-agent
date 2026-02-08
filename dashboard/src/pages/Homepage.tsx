@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import {
-  User,
   Coins,
   ArrowLeftRight,
   Users,
@@ -13,122 +12,119 @@ import {
   CircleDollarSign,
   Layers,
   Zap,
-  ChevronRight,
   AtSign,
-  AlertTriangle,
   ShieldCheck,
   Bot,
   Eye,
+  AlertTriangle,
+  Workflow,
+  CheckCircle2,
+  Terminal,
+  Globe,
+  Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Footer } from "@/components/layout/Footer";
 
+/* ───────────────────────────── Data ───────────────────────────── */
+
 interface Feature {
-  icon: typeof User;
+  icon: typeof Bot;
   title: string;
   description: string;
 }
 
 const features: Feature[] = [
   {
-    icon: User,
+    icon: AtSign,
     title: "ENS Name Resolution",
     description:
-      "Send to human-readable addresses like dad.eth or mom.eth instead of complex hex addresses",
+      "Send to human-readable addresses like dad.eth instead of raw hex addresses. Resolved via The Graph decentralized network.",
   },
   {
     icon: Coins,
     title: "Unified USDC Balance",
     description:
-      "Circle Gateway provides single balance view across Ethereum, Arbitrum, and Base",
+      "Circle Gateway provides a single balance view across Ethereum, Arbitrum, and Base. No bridging required.",
   },
   {
     icon: ArrowLeftRight,
     title: "Smart Swap Routing",
     description:
-      "Automatically routes through Uniswap v4 or LI.FI for best execution and lowest fees",
+      "The agent automatically picks Uniswap, LI.FI, or Circle Gateway based on chain, token, and cost. Users never choose.",
   },
   {
     icon: Users,
     title: "N-of-M Approvals",
     description:
-      "Require multiple family members to approve large transactions via Discord reactions",
+      "Large transactions require multiple family members to approve via Discord reactions before execution.",
   },
   {
     icon: MessageSquare,
     title: "Discord Native",
     description:
-      "Manage your treasury with simple chat commands - no complex UI to learn",
+      "No app to install, no UI to learn. The conversation is the interface. Works wherever Discord works.",
   },
   {
     icon: TrendingUp,
     title: "Price Monitoring",
     description:
-      "Real-time ETH price tracking via Uniswap v3 subgraph on The Graph network",
+      "Automated ETH price tracking via Uniswap v3 subgraph. Threshold alerts delivered straight to your Discord.",
   },
 ];
 
 interface Integration {
-  icon: typeof User;
+  icon: typeof Bot;
   name: string;
+  role: string;
   description: string;
-  useCase: string;
-  bounty?: string;
+  color: string;
 }
 
 const integrations: Integration[] = [
   {
     icon: CircleDollarSign,
     name: "Circle Gateway",
+    role: "Chain-abstracted USDC",
     description:
-      "Chain-abstracted USDC with instant cross-chain transfers in under 500ms. One balance across Ethereum, Arbitrum, and Base.",
-    useCase: "Cross-chain USDC",
-    bounty: "$5,000",
+      "Instant cross-chain USDC transfers in under 500ms. One unified balance across Ethereum, Arbitrum, and Base.",
+    color: "text-emerald-500",
   },
   {
     icon: ArrowLeftRight,
     name: "Uniswap",
+    role: "Same-chain swaps",
     description:
-      "Same-chain token swaps with real-time price data from The Graph decentralized network. Fastest and cheapest for on-chain trades.",
-    useCase: "Same-chain swaps",
-    bounty: "$5,000",
+      "Direct on-chain swaps via SwapRouter02 with pool data from The Graph. Fastest and cheapest for same-chain trades.",
+    color: "text-pink-500",
   },
   {
     icon: Layers,
     name: "LI.FI",
+    role: "Cross-chain routing",
     description:
-      "Cross-chain swaps with automatic bridge routing. Finds the best path across chains and tokens in a single transaction.",
-    useCase: "Cross-chain swaps",
-    bounty: "$2,000",
+      "Cross-chain swaps with automatic bridge selection. Quote, approve, and execute in one agent action.",
+    color: "text-violet-500",
   },
   {
     icon: AtSign,
     name: "ENS",
+    role: "Name resolution",
     description:
-      "Human-readable names for wallets and contracts. Send to dad.eth instead of 0x addresses.",
-    useCase: "Name resolution",
+      "Human-readable addresses via The Graph. Send to dad.eth instead of 0x742d35Cc... The agent handles resolution.",
+    color: "text-sky-500",
   },
 ];
 
-const steps = [
-  {
-    number: "1",
-    label: "You say",
-    text: '"Swap 1 USDC to ETH on Arbitrum"',
-  },
-  {
-    number: "2",
-    label: "Agent routes",
-    text: "Picks Uniswap, LI.FI, or Circle",
-  },
-  {
-    number: "3",
-    label: "Executed on-chain",
-    text: "Transaction confirmed in seconds",
-  },
+const chains = [
+  { name: "Ethereum", color: "#627EEA", abbr: "E" },
+  { name: "Arbitrum", color: "#28A0F0", abbr: "A" },
+  { name: "Base", color: "#0052FF", abbr: "B" },
 ];
+
+/* ───────────────────────────── Components ───────────────────────────── */
 
 function FadeInSection({ children, id }: { children: React.ReactNode; id?: string }) {
   const [isVisible, setIsVisible] = useState(false);
@@ -137,21 +133,13 @@ function FadeInSection({ children, id }: { children: React.ReactNode; id?: strin
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-        }
+        if (entry.isIntersecting) setIsVisible(true);
       },
       { threshold: 0.1 }
     );
-
-    if (ref.current) {
-      observer.observe(ref.current);
-    }
-
+    if (ref.current) observer.observe(ref.current);
     return () => {
-      if (ref.current) {
-        observer.unobserve(ref.current);
-      }
+      if (ref.current) observer.unobserve(ref.current);
     };
   }, []);
 
@@ -160,15 +148,191 @@ function FadeInSection({ children, id }: { children: React.ReactNode; id?: strin
       ref={ref}
       id={id}
       className={`transition-all duration-700 ${
-        isVisible
-          ? "opacity-100 translate-y-0"
-          : "opacity-0 translate-y-4"
+        isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
       }`}
     >
       {children}
     </div>
   );
 }
+
+function ChainStrip() {
+  return (
+    <div className="flex items-center justify-center gap-6 sm:gap-10 flex-wrap">
+      {chains.map((chain) => (
+        <div key={chain.name} className="flex items-center gap-2.5 group">
+          <div
+            className="h-8 w-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shadow-md group-hover:scale-110 transition-transform"
+            style={{ backgroundColor: chain.color }}
+          >
+            {chain.abbr}
+          </div>
+          <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+            {chain.name}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Interactive SVG architecture diagram */
+function ArchitectureDiagram() {
+  const [hovered, setHovered] = useState<string | null>(null);
+
+  const routes = [
+    { id: "uniswap", label: "Uniswap", desc: "Same-chain swaps", y: 30, color: "rgb(236, 72, 153)" },
+    { id: "lifi", label: "LI.FI", desc: "Cross-chain swaps", y: 110, color: "rgb(139, 92, 246)" },
+    { id: "gateway", label: "Circle Gateway", desc: "USDC transfers", y: 190, color: "rgb(16, 185, 129)" },
+  ];
+
+  return (
+    <div className="relative w-full max-w-5xl mx-auto">
+      {/* Mobile: stacked cards */}
+      <div className="block lg:hidden space-y-3">
+        {[
+          { icon: MessageSquare, label: "Discord", sub: "Natural language input", border: "border-blue-500/30", bg: "bg-blue-500/5" },
+          { icon: Workflow, label: "n8n Orchestrator", sub: "Workflow engine", border: "border-amber-500/30", bg: "bg-amber-500/5" },
+          { icon: Bot, label: "AI Agent", sub: "Intent parsing & routing", border: "border-primary/50", bg: "bg-primary/5" },
+        ].map((item, i) => (
+          <div key={item.label}>
+            <div className={`rounded-xl border-2 ${item.border} ${item.bg} p-4 text-center`}>
+              <div className="flex items-center justify-center gap-2">
+                <item.icon className="h-4 w-4 text-foreground" />
+                <span className="font-semibold text-sm">{item.label}</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">{item.sub}</p>
+            </div>
+            {i < 2 && (
+              <div className="flex justify-center">
+                <div className="w-px h-5 bg-border" />
+              </div>
+            )}
+          </div>
+        ))}
+        <div className="flex justify-center"><div className="w-px h-5 bg-border" /></div>
+        <div className="grid grid-cols-1 gap-2">
+          {routes.map((r) => (
+            <div key={r.id} className="rounded-lg border bg-card p-3 flex items-center gap-3" style={{ borderColor: `${r.color}40` }}>
+              <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: r.color }} />
+              <div>
+                <span className="font-semibold text-sm">{r.label}</span>
+                <span className="text-xs text-muted-foreground ml-2">{r.desc}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-center"><div className="w-px h-5 bg-border" /></div>
+        <div className="rounded-xl border-2 border-emerald-500/30 bg-emerald-500/5 p-4 text-center">
+          <span className="font-semibold text-sm text-emerald-600 dark:text-emerald-400">On-chain Execution</span>
+        </div>
+      </div>
+
+      {/* Desktop: SVG diagram with n8n layer */}
+      <div className="hidden lg:block">
+        <svg viewBox="0 0 1050 250" className="w-full" style={{ maxHeight: "270px" }}>
+          {/* Discord box */}
+          <g>
+            <rect x="10" y="85" width="130" height="70" rx="12" className="fill-card" stroke="rgb(59,130,246)" strokeWidth="2" strokeOpacity="0.4" />
+            <text x="75" y="112" textAnchor="middle" className="fill-foreground text-[12px] font-semibold">Discord</text>
+            <text x="75" y="130" textAnchor="middle" className="fill-muted-foreground text-[10px]">"swap 1 USDC to ETH"</text>
+          </g>
+
+          {/* Arrow: Discord → n8n */}
+          <line x1="140" y1="120" x2="195" y2="120" className="stroke-border" strokeWidth="1.5" strokeDasharray="5 3" />
+          <polygon points="190,116 200,120 190,124" className="fill-muted-foreground" />
+
+          {/* n8n orchestrator box */}
+          <g>
+            <rect x="200" y="75" width="145" height="90" rx="14" fill="url(#n8nGradient)" stroke="rgb(245,158,11)" strokeWidth="2" strokeOpacity="0.4" />
+            <text x="272" y="105" textAnchor="middle" className="fill-foreground text-[12px] font-bold">n8n Orchestrator</text>
+            <text x="272" y="122" textAnchor="middle" className="fill-muted-foreground text-[9.5px]">Validate &bull; Route &bull; Execute</text>
+            <text x="272" y="137" textAnchor="middle" className="fill-muted-foreground text-[9.5px]">Log &bull; Notify &bull; Recover</text>
+            <text x="272" y="155" textAnchor="middle" className="fill-amber-600 dark:fill-amber-400 text-[9px] font-medium">6 workflows &bull; 40+ nodes</text>
+          </g>
+
+          {/* Arrow: n8n → AI Agent */}
+          <line x1="345" y1="120" x2="405" y2="120" className="stroke-border" strokeWidth="1.5" strokeDasharray="5 3" />
+          <polygon points="400,116 410,120 400,124" className="fill-muted-foreground" />
+
+          {/* AI Agent box */}
+          <g>
+            <rect x="410" y="80" width="155" height="80" rx="14" className="stroke-primary/50" strokeWidth="2.5" fill="url(#agentGradient)" />
+            <text x="487" y="110" textAnchor="middle" className="fill-foreground text-[13px] font-bold">AI Agent</text>
+            <text x="487" y="128" textAnchor="middle" className="fill-muted-foreground text-[10px]">NLP intent &bull; ENS resolve</text>
+            <text x="487" y="145" textAnchor="middle" className="fill-muted-foreground text-[10px]">Smart route selection</text>
+          </g>
+
+          {/* Branching arrows from Agent to protocols */}
+          {routes.map((r) => {
+            const isActive = hovered === r.id;
+            return (
+              <g key={r.id}>
+                <path
+                  d={`M 565 120 C 610 120, 630 ${r.y + 20}, 680 ${r.y + 20}`}
+                  fill="none"
+                  stroke={isActive ? r.color : "hsl(var(--border))"}
+                  strokeWidth={isActive ? 2.5 : 1.5}
+                  strokeDasharray={isActive ? "0" : "5 3"}
+                  style={{ transition: "all 0.3s ease" }}
+                />
+                <polygon
+                  points={`675,${r.y + 16} 685,${r.y + 20} 675,${r.y + 24}`}
+                  fill={isActive ? r.color : "hsl(var(--muted-foreground))"}
+                  style={{ transition: "fill 0.3s ease" }}
+                />
+                <g
+                  onMouseEnter={() => setHovered(r.id)}
+                  onMouseLeave={() => setHovered(null)}
+                  style={{ cursor: "pointer" }}
+                >
+                  <rect
+                    x="688" y={r.y} width="170" height="40" rx="10"
+                    className="fill-card"
+                    stroke={isActive ? r.color : "hsl(var(--border))"}
+                    strokeWidth={isActive ? 2 : 1.5}
+                    style={{ transition: "all 0.3s ease" }}
+                  />
+                  <circle cx="705" cy={r.y + 20} r="4" fill={r.color} />
+                  <text x="720" y={r.y + 16} className="fill-foreground text-[11px] font-semibold">{r.label}</text>
+                  <text x="720" y={r.y + 29} className="fill-muted-foreground text-[9.5px]">{r.desc}</text>
+                </g>
+                <line
+                  x1="858" y1={r.y + 20} x2="920" y2={r.y + 20}
+                  stroke={isActive ? r.color : "hsl(var(--border))"}
+                  strokeWidth={isActive ? 2 : 1.5}
+                  strokeDasharray={isActive ? "0" : "5 3"}
+                  style={{ transition: "all 0.3s ease" }}
+                />
+              </g>
+            );
+          })}
+
+          {/* On-chain box */}
+          <g>
+            <rect x="925" y="75" width="110" height="100" rx="12" className="fill-card stroke-emerald-500/40" strokeWidth="2" />
+            <text x="980" y="115" textAnchor="middle" className="fill-emerald-600 dark:fill-emerald-400 text-[12px] font-semibold">On-chain</text>
+            <text x="980" y="133" textAnchor="middle" className="fill-muted-foreground text-[10px]">Confirmed</text>
+            <text x="980" y="150" textAnchor="middle" className="fill-muted-foreground text-[9px]">Logged to Appwrite</text>
+          </g>
+
+          <defs>
+            <linearGradient id="agentGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.08" />
+              <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.02" />
+            </linearGradient>
+            <linearGradient id="n8nGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="rgb(245,158,11)" stopOpacity="0.07" />
+              <stop offset="100%" stopColor="rgb(245,158,11)" stopOpacity="0.02" />
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+/* ───────────────────────────── Page ───────────────────────────── */
 
 export function Homepage() {
   const scrollToFeatures = () => {
@@ -177,31 +341,32 @@ export function Homepage() {
 
   return (
     <>
-      {/* Hero Section */}
+      {/* ─── Hero ─── */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        {/* Background gradient */}
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/5" />
-
-        {/* Decorative circles */}
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse" />
           <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
         </div>
 
-        {/* Content */}
         <div className="container relative z-10 text-center space-y-8 py-20 px-4">
+          <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
+            <Bot className="h-4 w-4" />
+            Agentic Treasury Management
+          </div>
+
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight">
-            Treasury Management for
+            Your AI agent for
             <br />
             <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              Families & Teams
+              crypto treasury
             </span>
           </h1>
 
-          <p className="text-lg sm:text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto">
-            Just chat. The AI handles the complexity. Chain-abstracted,
-            Discord-native treasury management built for EthGlobal HackMoney
-            2026.
+          <p className="text-lg sm:text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+            Talk to it in Discord. It swaps, sends, bridges, and reports &mdash;
+            across Ethereum, Arbitrum, and Base. No wallets to install.
+            No DeFi jargon to learn. Just chat.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -211,28 +376,19 @@ export function Homepage() {
                 Launch Dashboard
               </Link>
             </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              onClick={scrollToFeatures}
-              className="text-base"
-            >
-              View Features
+            <Button size="lg" variant="outline" onClick={scrollToFeatures} className="text-base">
+              How It Works
             </Button>
           </div>
 
-          {/* Status badge */}
-          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-            </span>
-            All systems operational
+          <div className="pt-4">
+            <p className="text-xs uppercase tracking-widest text-muted-foreground mb-4">Live on mainnet</p>
+            <ChainStrip />
           </div>
         </div>
       </section>
 
-      {/* Problem Statement */}
+      {/* ─── Problem ─── */}
       <FadeInSection>
         <section className="py-16 sm:py-20 border-b border-border/50 bg-gradient-to-b from-background to-destructive/5">
           <div className="container space-y-10 px-4 max-w-4xl mx-auto">
@@ -242,11 +398,11 @@ export function Homepage() {
                 The Problem
               </div>
               <h2 className="text-3xl md:text-4xl font-bold">
-                Crypto has an accessibility problem
+                Managing crypto is painful &mdash; even for pros
               </h2>
               <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
-                Families, teams, and small organizations want to participate in
-                crypto, but the tooling wasn't built for them.
+                Whether you're a family pooling savings or a DAO managing a
+                treasury, the tooling creates friction at every step.
               </p>
             </div>
 
@@ -266,10 +422,9 @@ export function Homepage() {
                 </p>
               </div>
               <div className="rounded-lg border-2 border-destructive/20 bg-card p-6 space-y-3">
-                <p className="font-semibold">Technical jargon</p>
+                <p className="font-semibold">Treasury is DevOps</p>
                 <p className="text-sm text-muted-foreground">
-                  Gas fees, slippage, bridging, RPCs &mdash; the learning curve
-                  excludes everyone who isn't already deep in crypto.
+                  Even crypto-native teams spend hours on routine operations &mdash; checking balances, approving tokens, choosing bridges, tracking transactions.
                 </p>
               </div>
               <div className="rounded-lg border-2 border-destructive/20 bg-card p-6 space-y-3">
@@ -284,7 +439,7 @@ export function Homepage() {
         </section>
       </FadeInSection>
 
-      {/* Solution Statement */}
+      {/* ─── Solution ─── */}
       <FadeInSection>
         <section className="py-16 sm:py-20 border-b border-border/50 bg-gradient-to-b from-primary/5 to-background">
           <div className="container space-y-10 px-4 max-w-4xl mx-auto">
@@ -294,12 +449,12 @@ export function Homepage() {
                 The Solution
               </div>
               <h2 className="text-3xl md:text-4xl font-bold">
-                Make crypto conversational
+                An AI agent that does the work for you
               </h2>
               <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
-                PigAiBank is a Discord-native AI agent that manages crypto for
-                your group. No wallets to install, no jargon to learn &mdash;
-                just chat.
+                PigAiBank is a Discord-native AI agent. It understands natural language,
+                picks the optimal route, executes on-chain, and reports back &mdash; all
+                from a chat message.
               </p>
             </div>
 
@@ -311,9 +466,9 @@ export function Homepage() {
               </div>
               <div className="flex items-start gap-3">
                 <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
-                  <Bot className="inline h-3 w-3 mr-0.5 -mt-0.5" />AI
+                  <Bot className="inline h-3 w-3 mr-0.5 -mt-0.5" />Agent
                 </span>
-                <p>"You have <strong>$12,340</strong> total &mdash; $8,200 in stablecoins and $4,140 in ETH across Arbitrum and Base."</p>
+                <p>"You have <strong>$12,340</strong> total &mdash; $8,200 in USDC and $4,140 in ETH across Arbitrum and Base."</p>
               </div>
               <div className="flex items-start gap-3">
                 <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-bold text-emerald-500">Dad</span>
@@ -321,39 +476,39 @@ export function Homepage() {
               </div>
               <div className="flex items-start gap-3">
                 <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
-                  <Bot className="inline h-3 w-3 mr-0.5 -mt-0.5" />AI
+                  <Bot className="inline h-3 w-3 mr-0.5 -mt-0.5" />Agent
                 </span>
-                <p>"Resolved alex.eth &rarr; 0x742d... Sending $100 USDC now. Done!"</p>
+                <p>"Resolved alex.eth &rarr; 0x742d... Sending $100 USDC. <a className="underline text-primary">Tx confirmed.</a>"</p>
               </div>
             </div>
 
-            {/* Solution pillars */}
+            {/* Solution pillars - reframed around agentic qualities */}
             <div className="grid sm:grid-cols-3 gap-6 text-center">
               <div className="space-y-3">
                 <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <MessageSquare className="h-6 w-6 text-primary" />
+                  <Terminal className="h-6 w-6 text-primary" />
                 </div>
-                <p className="font-semibold">Chat to transact</p>
+                <p className="font-semibold">Natural language in</p>
                 <p className="text-sm text-muted-foreground">
-                  Discord is the interface. Plain English in, on-chain execution out. No DeFi expertise required.
+                  No forms, no dropdowns, no hex addresses. Say what you want in plain English. The agent figures out the rest.
+                </p>
+              </div>
+              <div className="space-y-3">
+                <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Bot className="h-6 w-6 text-primary" />
+                </div>
+                <p className="font-semibold">Agent decides &amp; acts</p>
+                <p className="text-sm text-muted-foreground">
+                  The agent resolves ENS names, selects the optimal protocol, handles approvals and slippage, and executes the transaction.
                 </p>
               </div>
               <div className="space-y-3">
                 <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
                   <Users className="h-6 w-6 text-primary" />
                 </div>
-                <p className="font-semibold">Family consensus</p>
+                <p className="font-semibold">Humans stay in control</p>
                 <p className="text-sm text-muted-foreground">
-                  N-of-M approvals via Discord reactions. Everyone sees decisions. No one is locked out.
-                </p>
-              </div>
-              <div className="space-y-3">
-                <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Eye className="h-6 w-6 text-primary" />
-                </div>
-                <p className="font-semibold">Complexity hidden</p>
-                <p className="text-sm text-muted-foreground">
-                  Smart routing picks the best path automatically &mdash; Uniswap, LI.FI, or Circle Gateway. Users just see results.
+                  N-of-M approvals for large transactions. Every action is logged, reported, and visible to the group. The agent works <em>for</em> you.
                 </p>
               </div>
             </div>
@@ -361,52 +516,147 @@ export function Homepage() {
         </section>
       </FadeInSection>
 
-      {/* How It Works */}
+      {/* ─── Why Agentic ─── */}
       <FadeInSection>
         <section className="py-16 sm:py-20 border-b border-border/50">
-          <div className="container space-y-10 px-4">
+          <div className="container space-y-10 px-4 max-w-4xl mx-auto">
             <div className="text-center space-y-4">
-              <h2 className="text-3xl md:text-4xl font-bold">How it works</h2>
+              <div className="inline-flex items-center gap-2 rounded-full bg-amber-500/10 px-4 py-1.5 text-sm font-medium text-amber-600 dark:text-amber-400">
+                <Workflow className="h-4 w-4" />
+                Why Agentic?
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold">
+                The future of DeFi is conversational
+              </h2>
               <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
-                Chat naturally. The agent handles routing, execution, and
-                settlement.
+                We're in the age of powerful AI agents. The question isn't whether
+                agents will manage on-chain finance &mdash; it's whether they'll do it
+                safely. PigAiBank is built for reliability, transparency, and human oversight.
               </p>
             </div>
 
-            <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-2 max-w-4xl mx-auto">
-              {steps.map((step, i) => (
-                <div key={step.number} className="contents">
-                  <div className="flex flex-col items-center text-center gap-3 flex-1 max-w-xs">
-                    <div className="h-12 w-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-lg font-bold">
-                      {step.number}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">
-                        {step.label}
-                      </p>
-                      <p className="text-base mt-1">{step.text}</p>
-                    </div>
+            <div className="grid sm:grid-cols-2 gap-6">
+              <div className="rounded-xl border bg-card p-6 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+                    <Workflow className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                   </div>
-                  {i < steps.length - 1 && (
-                    <ChevronRight className="hidden md:block h-6 w-6 text-muted-foreground shrink-0" />
-                  )}
+                  <div>
+                    <p className="font-semibold">n8n Orchestration</p>
+                    <p className="text-xs text-muted-foreground">Not a black box</p>
+                  </div>
                 </div>
-              ))}
+                <p className="text-sm text-muted-foreground">
+                  Every agent action runs through a structured n8n workflow &mdash; 6 workflows,
+                  40+ nodes, with validation, error handling, retry logic, and Discord notifications.
+                  You can inspect, audit, and modify every decision the agent makes.
+                </p>
+              </div>
+
+              <div className="rounded-xl border bg-card p-6 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <Eye className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">Full Visibility</p>
+                    <p className="text-xs text-muted-foreground">Every action logged</p>
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Every execution is logged to Appwrite with full context &mdash; route chosen,
+                  quote received, tx hash, status. Daily reports, price alerts, and error
+                  notifications keep the whole team informed.
+                </p>
+              </div>
+
+              <div className="rounded-xl border bg-card p-6 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+                    <ShieldCheck className="h-5 w-5 text-emerald-500" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">Human-in-the-Loop</p>
+                    <p className="text-xs text-muted-foreground">Agents with guardrails</p>
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Unlike autonomous agents that act unilaterally, PigAiBank requires
+                  human confirmation for transactions. Large operations need N-of-M
+                  Discord reactions. The agent proposes &mdash; the group decides.
+                </p>
+              </div>
+
+              <div className="rounded-xl border bg-card p-6 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
+                    <Globe className="h-5 w-5 text-violet-500" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">Chain Abstracted</p>
+                    <p className="text-xs text-muted-foreground">Multi-chain, one interface</p>
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Users never think about which chain their funds are on. The agent
+                  sees all balances across Ethereum, Arbitrum, and Base as one
+                  treasury and routes accordingly.
+                </p>
+              </div>
             </div>
           </div>
         </section>
       </FadeInSection>
 
-      {/* Features Section */}
+      {/* ─── Architecture ─── */}
       <FadeInSection id="features">
+        <section className="py-16 sm:py-20 border-b border-border/50 bg-gradient-to-b from-background to-accent/5">
+          <div className="container space-y-10 px-4">
+            <div className="text-center space-y-4">
+              <h2 className="text-3xl md:text-4xl font-bold">
+                Agent architecture
+              </h2>
+              <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
+                A Discord message flows through n8n's workflow engine, where the AI agent
+                parses intent, resolves names, picks the optimal protocol, and executes on-chain.
+                Every step is observable and auditable.
+              </p>
+            </div>
+
+            <ArchitectureDiagram />
+
+            {/* Routing decision rules */}
+            <div className="grid sm:grid-cols-3 gap-4 max-w-3xl mx-auto pt-4">
+              <div className="text-center p-4 rounded-lg bg-card border border-pink-500/20">
+                <div className="h-2 w-2 rounded-full bg-pink-500 mx-auto mb-2" />
+                <p className="text-xs font-semibold">Same chain swap?</p>
+                <p className="text-xs text-muted-foreground mt-1">Uniswap via SwapRouter02</p>
+              </div>
+              <div className="text-center p-4 rounded-lg bg-card border border-violet-500/20">
+                <div className="h-2 w-2 rounded-full bg-violet-500 mx-auto mb-2" />
+                <p className="text-xs font-semibold">Cross-chain + token swap?</p>
+                <p className="text-xs text-muted-foreground mt-1">LI.FI auto-routing</p>
+              </div>
+              <div className="text-center p-4 rounded-lg bg-card border border-emerald-500/20">
+                <div className="h-2 w-2 rounded-full bg-emerald-500 mx-auto mb-2" />
+                <p className="text-xs font-semibold">USDC cross-chain?</p>
+                <p className="text-xs text-muted-foreground mt-1">Circle Gateway &mdash; instant</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </FadeInSection>
+
+      {/* ─── What the agent can do (replaces old How It Works + Features) ─── */}
+      <FadeInSection>
         <section className="py-16 sm:py-20 md:py-24">
           <div className="container space-y-12 px-4">
             <div className="text-center space-y-4">
               <h2 className="text-3xl md:text-4xl font-bold">
-                Everything you need for treasury management
+                What the agent can do
               </h2>
               <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
-                Built with best-in-class Web3 infrastructure
+                One chat interface. Six capabilities. All on mainnet.
               </p>
             </div>
 
@@ -416,7 +666,7 @@ export function Homepage() {
                 return (
                   <Card
                     key={feature.title}
-                    className="border-2 hover:border-primary hover:scale-105 transition-all duration-300 cursor-pointer"
+                    className="border-2 hover:border-primary transition-all duration-300"
                   >
                     <CardHeader>
                       <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
@@ -435,16 +685,17 @@ export function Homepage() {
         </section>
       </FadeInSection>
 
-      {/* Partner Integrations */}
+      {/* ─── Protocol Stack ─── */}
       <FadeInSection>
         <section className="py-16 sm:py-20 md:py-24 bg-gradient-to-br from-accent/5 via-background to-primary/5">
           <div className="container space-y-12 px-4">
             <div className="text-center space-y-4">
               <h2 className="text-3xl md:text-4xl font-bold">
-                Powered by best-in-class infrastructure
+                Protocol stack
               </h2>
               <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
-                Four partner integrations targeting $12,000 in bounty prizes
+                The agent composes four protocols into a unified execution layer.
+                Each handles what it does best &mdash; the agent picks the right one.
               </p>
             </div>
 
@@ -457,27 +708,18 @@ export function Homepage() {
                     className="border-2 border-primary/20 hover:border-primary transition-all duration-300 relative overflow-hidden"
                   >
                     <CardHeader className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <Icon className="h-6 w-6 text-primary" />
-                        </div>
-                        {integration.bounty && (
-                          <Badge variant="secondary" className="text-xs font-bold">
-                            {integration.bounty}
-                          </Badge>
-                        )}
+                      <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Icon className={`h-6 w-6 ${integration.color}`} />
                       </div>
                       <div>
-                        <CardTitle className="text-xl">
-                          {integration.name}
-                        </CardTitle>
+                        <CardTitle className="text-xl">{integration.name}</CardTitle>
                         <CardDescription className="text-sm mt-2">
                           {integration.description}
                         </CardDescription>
                       </div>
                       <Badge variant="outline" className="w-fit text-xs">
                         <Zap className="h-3 w-3 mr-1" />
-                        {integration.useCase}
+                        {integration.role}
                       </Badge>
                     </CardHeader>
                   </Card>
@@ -488,15 +730,37 @@ export function Homepage() {
         </section>
       </FadeInSection>
 
-      {/* Final CTA Section */}
+      {/* ─── Live on Mainnet proof strip ─── */}
+      <FadeInSection>
+        <section className="py-12 sm:py-16 border-b border-border/50">
+          <div className="container px-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-3xl mx-auto text-center">
+              {[
+                { icon: CheckCircle2, label: "Live on mainnet", sub: "Real transactions" },
+                { icon: Send, label: "3 chains", sub: "ETH, ARB, BASE" },
+                { icon: Bot, label: "4 protocols", sub: "Composed by agent" },
+                { icon: Workflow, label: "6 workflows", sub: "n8n orchestrated" },
+              ].map((stat) => (
+                <div key={stat.label} className="space-y-2">
+                  <stat.icon className="h-6 w-6 mx-auto text-primary" />
+                  <p className="font-bold text-lg">{stat.label}</p>
+                  <p className="text-xs text-muted-foreground">{stat.sub}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      </FadeInSection>
+
+      {/* ─── CTA ─── */}
       <FadeInSection>
         <section className="py-16 sm:py-20 md:py-24 bg-gradient-to-br from-primary/10 via-background to-accent/10">
           <div className="container text-center space-y-8 px-4">
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold">
-              Ready to simplify your treasury?
+              The easiest way to manage crypto
             </h2>
             <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto">
-              Join families and teams managing crypto the easy way
+              Stop clicking through DeFi dashboards. Start chatting with your treasury agent.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -517,18 +781,10 @@ export function Homepage() {
                 </a>
               </Button>
             </div>
-
-            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <Badge variant="outline" className="gap-2">
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" />
-                EthGlobal HackMoney 2026
-              </Badge>
-            </div>
           </div>
         </section>
       </FadeInSection>
 
-      {/* Footer */}
       <Footer />
     </>
   );

@@ -146,10 +146,15 @@ export function Footer() {
             <StatusIndicator />
           </div>
 
-          <div className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground">
-            <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-primary" />
-            EthGlobal HackMoney 2026
-          </div>
+          <a
+            href="https://github.com/smartpiggies/treasury-agent"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-primary hover:border-primary transition-colors"
+          >
+            Open Source
+            <ArrowUpRight className="h-3 w-3" />
+          </a>
         </div>
       </div>
     </footer>
