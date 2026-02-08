@@ -89,7 +89,7 @@ const integrations: Integration[] = [
     name: "Circle Gateway",
     role: "Chain-abstracted USDC",
     description:
-      "Instant cross-chain USDC transfers in under 500ms. One unified balance across Ethereum, Arbitrum, and Base.",
+      "Instant cross-chain USDC transfers in under 500ms. One unified balance across 20 supported chains.",
     color: "text-emerald-500",
   },
   {
@@ -105,7 +105,7 @@ const integrations: Integration[] = [
     name: "LI.FI",
     role: "Cross-chain routing",
     description:
-      "Cross-chain swaps with automatic bridge selection. Quote, approve, and execute in one agent action.",
+      "Cross-chain swaps across 57 EVM chains with automatic bridge selection. Quote, approve, and execute in one agent action.",
     color: "text-violet-500",
   },
   {
@@ -118,10 +118,31 @@ const integrations: Integration[] = [
   },
 ];
 
-const chains = [
+const heroChains = [
   { name: "Ethereum", color: "#627EEA", abbr: "E" },
   { name: "Arbitrum", color: "#28A0F0", abbr: "A" },
   { name: "Base", color: "#0052FF", abbr: "B" },
+];
+
+/** Circle Gateway (CCTP) supported chains — 20 mainnet domains */
+const gatewayChains = [
+  "Ethereum", "Avalanche", "OP Mainnet", "Arbitrum", "Solana", "Base",
+  "Polygon", "Unichain", "Linea", "Codex", "Sonic", "World Chain",
+  "Monad", "Sei", "BNB Chain", "XDC", "HyperEVM", "Ink", "Plume", "Starknet",
+];
+
+/** LI.FI supported EVM chains — 57 chains */
+const lifiChains = [
+  "Ethereum", "Arbitrum", "Base", "Hyperliquid", "HyperEVM", "Monad",
+  "BSC", "OP Mainnet", "Polygon", "Avalanche", "Gnosis", "Metis",
+  "Lisk", "FUSE", "Moonbeam", "Unichain", "Sei", "Immutable zkEVM",
+  "Flare", "Sonic", "Vana", "Gravity", "Taiko", "Soneium",
+  "Swellchain", "Ronin", "opBNB", "Corn", "Lens", "Cronos",
+  "Fraxtal", "Abstract", "Boba", "Rootstock", "zkSync", "Apechain",
+  "Mode", "Celo", "Etherlink", "Hemi", "World Chain", "XDC",
+  "Mantle", "Sophon", "Scroll", "Superposition", "Ink", "Linea",
+  "BOB", "Flow", "Katana", "Berachain", "Blast", "Kaia",
+  "Viction", "Plasma", "Plume",
 ];
 
 /* ───────────────────────────── Components ───────────────────────────── */
@@ -159,7 +180,7 @@ function FadeInSection({ children, id }: { children: React.ReactNode; id?: strin
 function ChainStrip() {
   return (
     <div className="flex items-center justify-center gap-6 sm:gap-10 flex-wrap">
-      {chains.map((chain) => (
+      {heroChains.map((chain) => (
         <div key={chain.name} className="flex items-center gap-2.5 group">
           <div
             className="h-8 w-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shadow-md group-hover:scale-110 transition-transform"
@@ -358,8 +379,8 @@ export function Homepage() {
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight">
             Your AI agent for
             <br />
-            <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              crypto treasury
+            <span className="bg-gradient-to-r from-primary via-primary to-primary/70 bg-clip-text text-transparent">
+              Crypto Treasury
             </span>
           </h1>
 
@@ -730,6 +751,62 @@ export function Homepage() {
         </section>
       </FadeInSection>
 
+      {/* ─── Chain Networks ─── */}
+      <FadeInSection>
+        <section className="py-16 sm:py-20 border-b border-border/50">
+          <div className="container space-y-14 px-4 max-w-5xl mx-auto">
+            {/* Circle Gateway chains */}
+            <div className="space-y-5">
+              <div className="text-center space-y-2">
+                <div className="flex items-center justify-center gap-2">
+                  <CircleDollarSign className="h-5 w-5 text-emerald-500" />
+                  <h3 className="text-xl font-bold">Circle Gateway &mdash; Unified USDC Balance</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {gatewayChains.length} chains with instant cross-chain USDC transfers via CCTP
+                </p>
+              </div>
+              <div className="flex flex-wrap justify-center gap-2">
+                {gatewayChains.map((name) => (
+                  <span
+                    key={name}
+                    className="rounded-full border border-emerald-500/20 bg-emerald-500/5 px-3 py-1 text-xs font-medium text-foreground hover:border-emerald-500/50 hover:bg-emerald-500/10 transition-colors"
+                  >
+                    {name}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="border-t border-border/50" />
+
+            {/* LI.FI chains */}
+            <div className="space-y-5">
+              <div className="text-center space-y-2">
+                <div className="flex items-center justify-center gap-2">
+                  <Layers className="h-5 w-5 text-violet-500" />
+                  <h3 className="text-xl font-bold">LI.FI &mdash; Cross-Chain Swaps &amp; Sends</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {lifiChains.length} EVM chains with automatic bridge and DEX routing
+                </p>
+              </div>
+              <div className="flex flex-wrap justify-center gap-2">
+                {lifiChains.map((name) => (
+                  <span
+                    key={name}
+                    className="rounded-full border border-violet-500/20 bg-violet-500/5 px-3 py-1 text-xs font-medium text-foreground hover:border-violet-500/50 hover:bg-violet-500/10 transition-colors"
+                  >
+                    {name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      </FadeInSection>
+
       {/* ─── Live on Mainnet proof strip ─── */}
       <FadeInSection>
         <section className="py-12 sm:py-16 border-b border-border/50">
@@ -737,7 +814,7 @@ export function Homepage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-3xl mx-auto text-center">
               {[
                 { icon: CheckCircle2, label: "Live on mainnet", sub: "Real transactions" },
-                { icon: Send, label: "3 chains", sub: "ETH, ARB, BASE" },
+                { icon: Send, label: "3+ chains", sub: "Expandable to 57+" },
                 { icon: Bot, label: "4 protocols", sub: "Composed by agent" },
                 { icon: Workflow, label: "6 workflows", sub: "n8n orchestrated" },
               ].map((stat) => (
