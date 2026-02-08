@@ -9,8 +9,11 @@ const navLinks = [
   { path: "/settings", label: "Settings" },
 ];
 
-const resourceLinks = [
-  { href: "https://docs.pigaibank.com", label: "Documentation" },
+const internalResourceLinks = [
+  { path: "/docs", label: "Documentation" },
+];
+
+const externalResourceLinks = [
   { href: "https://github.com/smartpiggies/treasury-agent", label: "GitHub" },
 ];
 
@@ -116,7 +119,17 @@ export function Footer() {
                 Resources
               </h3>
               <ul className="mt-4 flex flex-col gap-3">
-                {resourceLinks.map(({ href, label }) => (
+                {internalResourceLinks.map(({ path, label }) => (
+                  <li key={path}>
+                    <Link
+                      to={path}
+                      className="text-sm text-foreground transition-colors hover:text-primary"
+                    >
+                      {label}
+                    </Link>
+                  </li>
+                ))}
+                {externalResourceLinks.map(({ href, label }) => (
                   <li key={href}>
                     <a
                       href={href}

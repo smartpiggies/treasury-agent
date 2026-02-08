@@ -476,6 +476,11 @@ export function Homepage() {
             <Button size="lg" variant="outline" onClick={scrollToFeatures} className="text-base">
               How It Works
             </Button>
+            <Button size="lg" variant="outline" asChild className="text-base">
+              <Link to="/docs">
+                Tech Integration Docs
+              </Link>
+            </Button>
           </div>
 
         </div>
