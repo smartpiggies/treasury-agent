@@ -7,6 +7,7 @@ import {
   Settings,
   PiggyBank,
   Menu,
+  BookOpen,
 } from "lucide-react";
 import { ConnectButton } from "@/components/wallet/ConnectButton";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
@@ -24,6 +25,7 @@ const navItems = [
   { path: "/analytics", label: "Analytics", icon: BarChart3 },
   { path: "/history", label: "History", icon: History },
   { path: "/settings", label: "Settings", icon: Settings },
+  { path: "/docs", label: "Docs", icon: BookOpen },
 ];
 
 export function AppLayout() {

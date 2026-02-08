@@ -18,6 +18,12 @@ export function LandingLayout({ children }: LandingLayoutProps) {
             <span className="text-xl">PigAiBank</span>
           </Link>
           <div className="flex items-center gap-4">
+            <Link
+              to="/docs"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Docs
+            </Link>
             <ThemeToggle />
             <Button asChild>
               <Link to="/dashboard">Launch App</Link>
