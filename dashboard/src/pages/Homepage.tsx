@@ -18,10 +18,8 @@ import {
   Eye,
   AlertTriangle,
   Workflow,
-  CheckCircle2,
   Terminal,
   Globe,
-  Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -118,31 +116,97 @@ const integrations: Integration[] = [
   },
 ];
 
-const heroChains = [
-  { name: "Ethereum", color: "#627EEA", abbr: "E" },
-  { name: "Arbitrum", color: "#28A0F0", abbr: "A" },
-  { name: "Base", color: "#0052FF", abbr: "B" },
-];
+const TW_CDN = "https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains";
+
+interface ChainInfo {
+  name: string;
+  /** Trust Wallet assets slug — omit for initials fallback */
+  tw?: string;
+}
 
 /** Circle Gateway (CCTP) supported chains — 20 mainnet domains */
-const gatewayChains = [
-  "Ethereum", "Avalanche", "OP Mainnet", "Arbitrum", "Solana", "Base",
-  "Polygon", "Unichain", "Linea", "Codex", "Sonic", "World Chain",
-  "Monad", "Sei", "BNB Chain", "XDC", "HyperEVM", "Ink", "Plume", "Starknet",
+const gatewayChains: ChainInfo[] = [
+  { name: "Ethereum", tw: "ethereum" },
+  { name: "Avalanche", tw: "avalanchec" },
+  { name: "OP Mainnet", tw: "optimism" },
+  { name: "Arbitrum", tw: "arbitrum" },
+  { name: "Solana", tw: "solana" },
+  { name: "Base", tw: "base" },
+  { name: "Polygon", tw: "polygon" },
+  { name: "Unichain" },
+  { name: "Linea", tw: "linea" },
+  { name: "Codex" },
+  { name: "Sonic", tw: "sonic" },
+  { name: "World Chain" },
+  { name: "Monad" },
+  { name: "Sei", tw: "sei" },
+  { name: "BNB Chain", tw: "smartchain" },
+  { name: "XDC", tw: "xdc" },
+  { name: "HyperEVM" },
+  { name: "Ink" },
+  { name: "Plume" },
+  { name: "Starknet", tw: "starknet" },
 ];
 
 /** LI.FI supported EVM chains — 57 chains */
-const lifiChains = [
-  "Ethereum", "Arbitrum", "Base", "Hyperliquid", "HyperEVM", "Monad",
-  "BSC", "OP Mainnet", "Polygon", "Avalanche", "Gnosis", "Metis",
-  "Lisk", "FUSE", "Moonbeam", "Unichain", "Sei", "Immutable zkEVM",
-  "Flare", "Sonic", "Vana", "Gravity", "Taiko", "Soneium",
-  "Swellchain", "Ronin", "opBNB", "Corn", "Lens", "Cronos",
-  "Fraxtal", "Abstract", "Boba", "Rootstock", "zkSync", "Apechain",
-  "Mode", "Celo", "Etherlink", "Hemi", "World Chain", "XDC",
-  "Mantle", "Sophon", "Scroll", "Superposition", "Ink", "Linea",
-  "BOB", "Flow", "Katana", "Berachain", "Blast", "Kaia",
-  "Viction", "Plasma", "Plume",
+const lifiChains: ChainInfo[] = [
+  { name: "Ethereum", tw: "ethereum" },
+  { name: "Arbitrum", tw: "arbitrum" },
+  { name: "Base", tw: "base" },
+  { name: "Hyperliquid" },
+  { name: "HyperEVM" },
+  { name: "Monad" },
+  { name: "BSC", tw: "smartchain" },
+  { name: "OP Mainnet", tw: "optimism" },
+  { name: "Polygon", tw: "polygon" },
+  { name: "Avalanche", tw: "avalanchec" },
+  { name: "Gnosis", tw: "xdai" },
+  { name: "Metis", tw: "metis" },
+  { name: "Lisk" },
+  { name: "FUSE", tw: "fuse" },
+  { name: "Moonbeam", tw: "moonbeam" },
+  { name: "Unichain" },
+  { name: "Sei", tw: "sei" },
+  { name: "Immutable zkEVM" },
+  { name: "Flare", tw: "flare" },
+  { name: "Sonic", tw: "sonic" },
+  { name: "Vana" },
+  { name: "Gravity" },
+  { name: "Taiko" },
+  { name: "Soneium" },
+  { name: "Swellchain" },
+  { name: "Ronin", tw: "ronin" },
+  { name: "opBNB", tw: "opbnb" },
+  { name: "Corn" },
+  { name: "Lens" },
+  { name: "Cronos", tw: "cronos" },
+  { name: "Fraxtal" },
+  { name: "Abstract" },
+  { name: "Boba", tw: "boba" },
+  { name: "Rootstock" },
+  { name: "zkSync", tw: "zksync" },
+  { name: "Apechain" },
+  { name: "Mode" },
+  { name: "Celo", tw: "celo" },
+  { name: "Etherlink" },
+  { name: "Hemi" },
+  { name: "World Chain" },
+  { name: "XDC", tw: "xdc" },
+  { name: "Mantle", tw: "mantle" },
+  { name: "Sophon" },
+  { name: "Scroll", tw: "scroll" },
+  { name: "Superposition" },
+  { name: "Ink" },
+  { name: "Linea", tw: "linea" },
+  { name: "BOB" },
+  { name: "Flow" },
+  { name: "Katana" },
+  { name: "Berachain" },
+  { name: "Blast", tw: "blast" },
+  { name: "Kaia", tw: "klaytn" },
+  { name: "Viction" },
+  { name: "Plasma" },
+  { name: "Plume" },
 ];
 
 /* ───────────────────────────── Components ───────────────────────────── */
@@ -177,23 +241,35 @@ function FadeInSection({ children, id }: { children: React.ReactNode; id?: strin
   );
 }
 
-function ChainStrip() {
+function ChainIcon({ chain, size = "sm" }: { chain: ChainInfo; size?: "sm" | "md" }) {
+  const [imgError, setImgError] = useState(false);
+  const initials = chain.name
+    .split(/[\s-]+/)
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  const dim = size === "md" ? "h-6 w-6" : "h-5 w-5";
+  const textSize = size === "md" ? "text-[10px]" : "text-[9px]";
+
+  if (chain.tw && !imgError) {
+    return (
+      <img
+        src={`${TW_CDN}/${chain.tw}/info/logo.png`}
+        alt={chain.name}
+        className={`${dim} rounded-full object-cover`}
+        loading="lazy"
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+
   return (
-    <div className="flex items-center justify-center gap-6 sm:gap-10 flex-wrap">
-      {heroChains.map((chain) => (
-        <div key={chain.name} className="flex items-center gap-2.5 group">
-          <div
-            className="h-8 w-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shadow-md group-hover:scale-110 transition-transform"
-            style={{ backgroundColor: chain.color }}
-          >
-            {chain.abbr}
-          </div>
-          <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">
-            {chain.name}
-          </span>
-        </div>
-      ))}
-    </div>
+    <span
+      className={`${dim} rounded-full bg-muted flex items-center justify-center ${textSize} font-bold text-muted-foreground shrink-0`}
+    >
+      {initials}
+    </span>
   );
 }
 
@@ -402,9 +478,56 @@ export function Homepage() {
             </Button>
           </div>
 
-          <div className="pt-4">
-            <p className="text-xs uppercase tracking-widest text-muted-foreground mb-4">Live on mainnet</p>
-            <ChainStrip />
+        </div>
+      </section>
+
+      {/* ─── Chain Networks ─── */}
+      <section className="py-14 sm:py-16 border-b border-border/50">
+        <div className="container space-y-12 px-4 max-w-5xl mx-auto">
+          {/* Circle Gateway */}
+          <div className="space-y-5">
+            <div className="flex items-center justify-center gap-2.5">
+              <CircleDollarSign className="h-5 w-5 text-emerald-500" />
+              <h3 className="text-lg font-bold">Circle Gateway</h3>
+              <span className="text-sm text-muted-foreground">
+                &mdash; Unified USDC across {gatewayChains.length} chains
+              </span>
+            </div>
+            <div className="flex flex-wrap justify-center gap-2">
+              {gatewayChains.map((chain) => (
+                <span
+                  key={chain.name}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/5 pl-1.5 pr-3 py-1 text-xs font-medium text-foreground hover:border-emerald-500/50 hover:bg-emerald-500/10 transition-colors"
+                >
+                  <ChainIcon chain={chain} />
+                  {chain.name}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="border-t border-border/50" />
+
+          {/* LI.FI */}
+          <div className="space-y-5">
+            <div className="flex items-center justify-center gap-2.5">
+              <Layers className="h-5 w-5 text-violet-500" />
+              <h3 className="text-lg font-bold">LI.FI</h3>
+              <span className="text-sm text-muted-foreground">
+                &mdash; Cross-chain swaps across {lifiChains.length} chains
+              </span>
+            </div>
+            <div className="flex flex-wrap justify-center gap-2">
+              {lifiChains.map((chain) => (
+                <span
+                  key={chain.name}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/20 bg-violet-500/5 pl-1.5 pr-3 py-1 text-xs font-medium text-foreground hover:border-violet-500/50 hover:bg-violet-500/10 transition-colors"
+                >
+                  <ChainIcon chain={chain} />
+                  {chain.name}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -746,84 +869,6 @@ export function Homepage() {
                   </Card>
                 );
               })}
-            </div>
-          </div>
-        </section>
-      </FadeInSection>
-
-      {/* ─── Chain Networks ─── */}
-      <FadeInSection>
-        <section className="py-16 sm:py-20 border-b border-border/50">
-          <div className="container space-y-14 px-4 max-w-5xl mx-auto">
-            {/* Circle Gateway chains */}
-            <div className="space-y-5">
-              <div className="text-center space-y-2">
-                <div className="flex items-center justify-center gap-2">
-                  <CircleDollarSign className="h-5 w-5 text-emerald-500" />
-                  <h3 className="text-xl font-bold">Circle Gateway &mdash; Unified USDC Balance</h3>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {gatewayChains.length} chains with instant cross-chain USDC transfers via CCTP
-                </p>
-              </div>
-              <div className="flex flex-wrap justify-center gap-2">
-                {gatewayChains.map((name) => (
-                  <span
-                    key={name}
-                    className="rounded-full border border-emerald-500/20 bg-emerald-500/5 px-3 py-1 text-xs font-medium text-foreground hover:border-emerald-500/50 hover:bg-emerald-500/10 transition-colors"
-                  >
-                    {name}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Divider */}
-            <div className="border-t border-border/50" />
-
-            {/* LI.FI chains */}
-            <div className="space-y-5">
-              <div className="text-center space-y-2">
-                <div className="flex items-center justify-center gap-2">
-                  <Layers className="h-5 w-5 text-violet-500" />
-                  <h3 className="text-xl font-bold">LI.FI &mdash; Cross-Chain Swaps &amp; Sends</h3>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {lifiChains.length} EVM chains with automatic bridge and DEX routing
-                </p>
-              </div>
-              <div className="flex flex-wrap justify-center gap-2">
-                {lifiChains.map((name) => (
-                  <span
-                    key={name}
-                    className="rounded-full border border-violet-500/20 bg-violet-500/5 px-3 py-1 text-xs font-medium text-foreground hover:border-violet-500/50 hover:bg-violet-500/10 transition-colors"
-                  >
-                    {name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-      </FadeInSection>
-
-      {/* ─── Live on Mainnet proof strip ─── */}
-      <FadeInSection>
-        <section className="py-12 sm:py-16 border-b border-border/50">
-          <div className="container px-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-3xl mx-auto text-center">
-              {[
-                { icon: CheckCircle2, label: "Live on mainnet", sub: "Real transactions" },
-                { icon: Send, label: "3+ chains", sub: "Expandable to 57+" },
-                { icon: Bot, label: "4 protocols", sub: "Composed by agent" },
-                { icon: Workflow, label: "6 workflows", sub: "n8n orchestrated" },
-              ].map((stat) => (
-                <div key={stat.label} className="space-y-2">
-                  <stat.icon className="h-6 w-6 mx-auto text-primary" />
-                  <p className="font-bold text-lg">{stat.label}</p>
-                  <p className="text-xs text-muted-foreground">{stat.sub}</p>
-                </div>
-              ))}
             </div>
           </div>
         </section>
