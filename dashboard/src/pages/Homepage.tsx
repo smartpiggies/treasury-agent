@@ -439,7 +439,7 @@ export function Homepage() {
   return (
     <>
       {/* ─── Hero ─── */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      <section className="relative min-h-[70vh] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/5" />
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse" />
@@ -482,8 +482,8 @@ export function Homepage() {
       </section>
 
       {/* ─── Chain Networks ─── */}
-      <section className="py-14 sm:py-16 border-b border-border/50">
-        <div className="container space-y-12 px-4 max-w-5xl mx-auto">
+      <section className="py-10 sm:py-12 border-b border-border/50">
+        <div className="container space-y-8 px-4 max-w-5xl mx-auto">
           {/* Circle Gateway */}
           <div className="space-y-5">
             <div className="flex items-center justify-center gap-2.5">
@@ -497,7 +497,7 @@ export function Homepage() {
               {gatewayChains.map((chain) => (
                 <span
                   key={chain.name}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/5 pl-1.5 pr-3 py-1 text-xs font-medium text-foreground hover:border-emerald-500/50 hover:bg-emerald-500/10 transition-colors"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/5 pl-1.5 pr-3 py-1.5 text-sm font-medium text-foreground hover:border-emerald-500/50 hover:bg-emerald-500/10 transition-colors"
                 >
                   <ChainIcon chain={chain} />
                   {chain.name}
@@ -521,7 +521,7 @@ export function Homepage() {
               {lifiChains.map((chain) => (
                 <span
                   key={chain.name}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/20 bg-violet-500/5 pl-1.5 pr-3 py-1 text-xs font-medium text-foreground hover:border-violet-500/50 hover:bg-violet-500/10 transition-colors"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/20 bg-violet-500/5 pl-1.5 pr-3 py-1.5 text-sm font-medium text-foreground hover:border-violet-500/50 hover:bg-violet-500/10 transition-colors"
                 >
                   <ChainIcon chain={chain} />
                   {chain.name}
@@ -534,9 +534,9 @@ export function Homepage() {
 
       {/* ─── Problem ─── */}
       <FadeInSection>
-        <section className="py-16 sm:py-20 border-b border-border/50 bg-gradient-to-b from-background to-destructive/5">
-          <div className="container space-y-10 px-4 max-w-4xl mx-auto">
-            <div className="text-center space-y-4">
+        <section className="py-12 sm:py-14 border-b border-border/50 bg-gradient-to-b from-background to-destructive/5">
+          <div className="container space-y-8 px-4 max-w-4xl mx-auto">
+            <div className="text-center space-y-3">
               <div className="inline-flex items-center gap-2 rounded-full bg-destructive/10 px-4 py-1.5 text-sm font-medium text-destructive">
                 <AlertTriangle className="h-4 w-4" />
                 The Problem
@@ -585,9 +585,9 @@ export function Homepage() {
 
       {/* ─── Solution ─── */}
       <FadeInSection>
-        <section className="py-16 sm:py-20 border-b border-border/50 bg-gradient-to-b from-primary/5 to-background">
-          <div className="container space-y-10 px-4 max-w-4xl mx-auto">
-            <div className="text-center space-y-4">
+        <section className="py-12 sm:py-14 border-b border-border/50 bg-gradient-to-b from-primary/5 to-background">
+          <div className="container space-y-8 px-4 max-w-4xl mx-auto">
+            <div className="text-center space-y-3">
               <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
                 <ShieldCheck className="h-4 w-4" />
                 The Solution
@@ -603,23 +603,23 @@ export function Homepage() {
             </div>
 
             {/* Chat example */}
-            <div className="rounded-xl border-2 border-primary/20 bg-card p-6 sm:p-8 max-w-2xl mx-auto space-y-4 font-mono text-sm">
+            <div className="rounded-xl border-2 border-primary/20 bg-card p-6 sm:p-8 max-w-2xl mx-auto space-y-4 font-mono text-base">
               <div className="flex items-start gap-3">
-                <span className="shrink-0 rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-bold text-blue-500">Mom</span>
+                <span className="shrink-0 rounded-full bg-blue-500/10 px-2.5 py-0.5 text-sm font-bold text-blue-500">Mom</span>
                 <p>"@PigAiBank what's our balance?"</p>
               </div>
               <div className="flex items-start gap-3">
-                <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
+                <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-0.5 text-sm font-bold text-primary">
                   <Bot className="inline h-3 w-3 mr-0.5 -mt-0.5" />Agent
                 </span>
                 <p>"You have <strong>$12,340</strong> total &mdash; $8,200 in USDC and $4,140 in ETH across Arbitrum and Base."</p>
               </div>
               <div className="flex items-start gap-3">
-                <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-bold text-emerald-500">Dad</span>
+                <span className="shrink-0 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-sm font-bold text-emerald-500">Dad</span>
                 <p>"@PigAiBank send $100 to alex.eth"</p>
               </div>
               <div className="flex items-start gap-3">
-                <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
+                <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-0.5 text-sm font-bold text-primary">
                   <Bot className="inline h-3 w-3 mr-0.5 -mt-0.5" />Agent
                 </span>
                 <p>"Resolved alex.eth &rarr; 0x742d... Sending $100 USDC. <a className="underline text-primary">Tx confirmed.</a>"</p>
@@ -662,9 +662,9 @@ export function Homepage() {
 
       {/* ─── Why Agentic ─── */}
       <FadeInSection>
-        <section className="py-16 sm:py-20 border-b border-border/50">
-          <div className="container space-y-10 px-4 max-w-4xl mx-auto">
-            <div className="text-center space-y-4">
+        <section className="py-12 sm:py-14 border-b border-border/50">
+          <div className="container space-y-8 px-4 max-w-4xl mx-auto">
+            <div className="text-center space-y-3">
               <div className="inline-flex items-center gap-2 rounded-full bg-amber-500/10 px-4 py-1.5 text-sm font-medium text-amber-600 dark:text-amber-400">
                 <Workflow className="h-4 w-4" />
                 Why Agentic?
@@ -687,7 +687,7 @@ export function Homepage() {
                   </div>
                   <div>
                     <p className="font-semibold">n8n Orchestration</p>
-                    <p className="text-xs text-muted-foreground">Not a black box</p>
+                    <p className="text-sm text-muted-foreground">Not a black box</p>
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
@@ -704,7 +704,7 @@ export function Homepage() {
                   </div>
                   <div>
                     <p className="font-semibold">Full Visibility</p>
-                    <p className="text-xs text-muted-foreground">Every action logged</p>
+                    <p className="text-sm text-muted-foreground">Every action logged</p>
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
@@ -721,7 +721,7 @@ export function Homepage() {
                   </div>
                   <div>
                     <p className="font-semibold">Human-in-the-Loop</p>
-                    <p className="text-xs text-muted-foreground">Agents with guardrails</p>
+                    <p className="text-sm text-muted-foreground">Agents with guardrails</p>
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
@@ -738,7 +738,7 @@ export function Homepage() {
                   </div>
                   <div>
                     <p className="font-semibold">Chain Abstracted</p>
-                    <p className="text-xs text-muted-foreground">Multi-chain, one interface</p>
+                    <p className="text-sm text-muted-foreground">Multi-chain, one interface</p>
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
@@ -754,9 +754,9 @@ export function Homepage() {
 
       {/* ─── Architecture ─── */}
       <FadeInSection id="features">
-        <section className="py-16 sm:py-20 border-b border-border/50 bg-gradient-to-b from-background to-accent/5">
-          <div className="container space-y-10 px-4">
-            <div className="text-center space-y-4">
+        <section className="py-12 sm:py-14 border-b border-border/50 bg-gradient-to-b from-background to-accent/5">
+          <div className="container space-y-8 px-4">
+            <div className="text-center space-y-3">
               <h2 className="text-3xl md:text-4xl font-bold">
                 Agent architecture
               </h2>
@@ -772,19 +772,19 @@ export function Homepage() {
             {/* Routing decision rules */}
             <div className="grid sm:grid-cols-3 gap-4 max-w-3xl mx-auto pt-4">
               <div className="text-center p-4 rounded-lg bg-card border border-pink-500/20">
-                <div className="h-2 w-2 rounded-full bg-pink-500 mx-auto mb-2" />
-                <p className="text-xs font-semibold">Same chain swap?</p>
-                <p className="text-xs text-muted-foreground mt-1">Uniswap via SwapRouter02</p>
+                <div className="h-2.5 w-2.5 rounded-full bg-pink-500 mx-auto mb-2" />
+                <p className="text-sm font-semibold">Same chain swap?</p>
+                <p className="text-sm text-muted-foreground mt-1">Uniswap via SwapRouter02</p>
               </div>
               <div className="text-center p-4 rounded-lg bg-card border border-violet-500/20">
-                <div className="h-2 w-2 rounded-full bg-violet-500 mx-auto mb-2" />
-                <p className="text-xs font-semibold">Cross-chain + token swap?</p>
-                <p className="text-xs text-muted-foreground mt-1">LI.FI auto-routing</p>
+                <div className="h-2.5 w-2.5 rounded-full bg-violet-500 mx-auto mb-2" />
+                <p className="text-sm font-semibold">Cross-chain + token swap?</p>
+                <p className="text-sm text-muted-foreground mt-1">LI.FI auto-routing</p>
               </div>
               <div className="text-center p-4 rounded-lg bg-card border border-emerald-500/20">
-                <div className="h-2 w-2 rounded-full bg-emerald-500 mx-auto mb-2" />
-                <p className="text-xs font-semibold">USDC cross-chain?</p>
-                <p className="text-xs text-muted-foreground mt-1">Circle Gateway &mdash; instant</p>
+                <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 mx-auto mb-2" />
+                <p className="text-sm font-semibold">USDC cross-chain?</p>
+                <p className="text-sm text-muted-foreground mt-1">Circle Gateway &mdash; instant</p>
               </div>
             </div>
           </div>
@@ -793,9 +793,9 @@ export function Homepage() {
 
       {/* ─── What the agent can do (replaces old How It Works + Features) ─── */}
       <FadeInSection>
-        <section className="py-16 sm:py-20 md:py-24">
-          <div className="container space-y-12 px-4">
-            <div className="text-center space-y-4">
+        <section className="py-12 sm:py-14">
+          <div className="container space-y-8 px-4">
+            <div className="text-center space-y-3">
               <h2 className="text-3xl md:text-4xl font-bold">
                 What the agent can do
               </h2>
@@ -831,9 +831,9 @@ export function Homepage() {
 
       {/* ─── Protocol Stack ─── */}
       <FadeInSection>
-        <section className="py-16 sm:py-20 md:py-24 bg-gradient-to-br from-accent/5 via-background to-primary/5">
-          <div className="container space-y-12 px-4">
-            <div className="text-center space-y-4">
+        <section className="py-12 sm:py-14 bg-gradient-to-br from-accent/5 via-background to-primary/5">
+          <div className="container space-y-8 px-4">
+            <div className="text-center space-y-3">
               <h2 className="text-3xl md:text-4xl font-bold">
                 Protocol stack
               </h2>
@@ -876,8 +876,8 @@ export function Homepage() {
 
       {/* ─── CTA ─── */}
       <FadeInSection>
-        <section className="py-16 sm:py-20 md:py-24 bg-gradient-to-br from-primary/10 via-background to-accent/10">
-          <div className="container text-center space-y-8 px-4">
+        <section className="py-12 sm:py-16 bg-gradient-to-br from-primary/10 via-background to-accent/10">
+          <div className="container text-center space-y-6 px-4">
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold">
               The easiest way to manage crypto
             </h2>
