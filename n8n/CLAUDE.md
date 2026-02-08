@@ -23,9 +23,10 @@ Self-hosted on **Hostinger VPS** via Docker.
 | Error Handler | `kZjokECTsoBc4u0K` | 4 |
 | Weekly Summary | `GA6J1Rwewnd4ouKR` | 5 |
 | Price Monitor | `j4GC43sr9gyIZBzs` | 7 |
-| Daily Report | `ug0pkxlD19gLvirK` | 6 |
+| Daily Report | `ZNJK2PLYR3wyXqwF` | 10 |
 | Swap Executor | `6kp4XdrxJx3gthN9` | 20 |
-| Discord Webhook Handler | `OijuLP9fOXpEc0be` | — |
+| Discord Webhook Handler | `OijuLP9fOXpEc0be` | 17 |
+| Get Balance (API) | `yMv0TeN8hPUHUiOF` | 8 |
 
 **Note:** Workflow IDs change on each reimport. Verify current IDs with `docker exec n8n n8n list:workflow`. Old merged "Daily Treasury Report" (`S3X87WkOmf9jnmju`) can be deleted.
 
