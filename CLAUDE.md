@@ -17,7 +17,7 @@ High-level efforts that need human guidance, testing, and decision-making. Remov
 - [ ] **Improve Dashboard App** - UX polish, additional features, mobile responsiveness
   - [ ] Test and fix WalletConnect integration
   - [ ] Test and fix all Quick Action buttons
-- [ ] **Show Balances on All Chains** - Display per-chain USDC balances (Ethereum, Arbitrum, Base) on both the dashboard and via Discord bot, not just aggregate total
+- [x] **Show Balances on All Chains** - Per-chain Gateway USDC + wallet USDC + wallet ETH on dashboard, daily report, and Discord bot
 - [ ] **Fix Deposit-to-Shared-Treasury Flow** - Currently `gateway.deposit()` attributes funds to `msg.sender`, so users can only deposit to their own Gateway balance. Need a mechanism for any address to contribute to the shared treasury (e.g. users send USDC to treasury wallet, then treasury deposits to Gateway; or a proxy contract that deposits on behalf of treasury)
 - [ ] **N-of-M Approval Logic & Testing** - Discord reaction-based consensus for large transactions
 - [ ] **User/Group Registration** - Onboarding flow for families/teams, permission management

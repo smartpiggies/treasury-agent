@@ -63,24 +63,46 @@
     },
     {
       "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Fetch on-chain wallet balances (USDC + ETH) on each chain via JSON-RPC\nconst fetch = require('node-fetch');\nconst treasury = $env.TREASURY_ADDRESS;\n\nconst chains = [\n  { name: 'Ethereum', rpc: $env.RPC_ETHEREUM || 'https://eth.llamarpc.com', usdc: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' },\n  { name: 'Arbitrum', rpc: $env.RPC_ARBITRUM || 'https://arb1.arbitrum.io/rpc', usdc: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831' },\n  { name: 'Base', rpc: $env.RPC_BASE || 'https://mainnet.base.org', usdc: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },\n];\n\n// ERC20 balanceOf(address) selector = 0x70a08231 + address padded to 32 bytes\nconst balanceOfData = '0x70a08231' + treasury.slice(2).toLowerCase().padStart(64, '0');\n\nasync function rpcCall(rpc, method, params) {\n  const res = await fetch(rpc, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),\n  });\n  const data = await res.json();\n  return data.result || '0x0';\n}\n\nconst results = await Promise.all(chains.map(async (chain) => {\n  try {\n    const [ethHex, usdcHex] = await Promise.all([\n      rpcCall(chain.rpc, 'eth_getBalance', [treasury, 'latest']),\n      rpcCall(chain.rpc, 'eth_call', [{ to: chain.usdc, data: balanceOfData }, 'latest']),\n    ]);\n    const ethBalance = parseInt(ethHex, 16) / 1e18;\n    const usdcBalance = parseInt(usdcHex, 16) / 1e6;\n    return { chain: chain.name, ethBalance, usdcBalance };\n  } catch (err) {\n    return { chain: chain.name, ethBalance: 0, usdcBalance: 0 };\n  }\n}));\n\nreturn [{ json: { _type: 'wallet_balances', wallet_balances: results } }];"
+      },
+      "id": "fetch-wallet",
+      "name": "Fetch Wallet Balances",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 300],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
         "mode": "append"
       },
-      "id": "merge-data",
-      "name": "Merge Data",
+      "id": "merge-gw-price",
+      "name": "Merge Gateway + Price",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
       "position": [440, 0]
     },
     {
       "parameters": {
+        "mode": "append"
+      },
+      "id": "merge-all",
+      "name": "Merge All",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [550, 100]
+    },
+    {
+      "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Process merged data from Circle Gateway and The Graph\nconst items = $input.all();\n\nlet balanceData = {};\nlet priceData = {};\n\n// Identify which response is which by structure\nfor (const item of items) {\n  const json = item.json || {};\n  if (json.data?.bundles) {\n    priceData = json;\n  } else if (json.token === 'USDC' || json.balances || json.data?.balances) {\n    balanceData = json;\n  }\n}\n\n// Parse Circle Gateway balance\nlet totalUsd = 0;\nconst chains = [];\nconst domainNames = {\n  0: 'Ethereum',\n  3: 'Arbitrum', \n  6: 'Base'\n};\n\nconst balances = balanceData.balances || balanceData.data?.balances || [];\nfor (const bal of balances) {\n  const amount = parseFloat(bal.balance || bal.amount || '0');\n  totalUsd += amount;\n  chains.push({\n    chain: domainNames[bal.domain] || `Domain ${bal.domain}`,\n    token: 'USDC',\n    balance: bal.balance || String(amount),\n    balance_usd: amount,\n  });\n}\n\n// Parse ETH price from The Graph\nlet ethPrice = 0;\nif (priceData.data?.bundles?.[0]) {\n  ethPrice = parseFloat(priceData.data.bundles[0].ethPriceUSD) || 0;\n}\n\nreturn [{\n  json: {\n    total_usd: totalUsd,\n    chains: chains,\n    eth_price: ethPrice,\n    timestamp: new Date().toISOString(),\n  }\n}];"
+        "jsCode": "// Process merged data from Circle Gateway, The Graph, and wallet RPC\nconst items = $input.all();\n\nlet balanceData = {};\nlet priceData = {};\nlet walletData = [];\n\n// Identify which response is which by structure\nfor (const item of items) {\n  const json = item.json || {};\n  if (json._type === 'wallet_balances') {\n    walletData = json.wallet_balances || [];\n  } else if (json.data?.bundles) {\n    priceData = json;\n  } else if (json.token === 'USDC' || json.balances || json.data?.balances) {\n    balanceData = json;\n  }\n}\n\n// Parse Circle Gateway balance\nlet gatewayTotalUsd = 0;\nconst chains = [];\nconst domainNames = {\n  0: 'Ethereum',\n  3: 'Arbitrum', \n  6: 'Base'\n};\n\nconst balances = balanceData.balances || balanceData.data?.balances || [];\nfor (const bal of balances) {\n  const amount = parseFloat(bal.balance || bal.amount || '0');\n  gatewayTotalUsd += amount;\n  chains.push({\n    chain: domainNames[bal.domain] || `Domain ${bal.domain}`,\n    token: 'USDC',\n    balance: bal.balance || String(amount),\n    balance_usd: amount,\n  });\n}\n\n// Parse ETH price from The Graph\nlet ethPrice = 0;\nif (priceData.data?.bundles?.[0]) {\n  ethPrice = parseFloat(priceData.data.bundles[0].ethPriceUSD) || 0;\n}\n\n// Build wallet balances per chain\nlet walletTotalUsdc = 0;\nlet walletTotalEthValue = 0;\nconst wallet_chains = walletData.map(w => {\n  walletTotalUsdc += w.usdcBalance || 0;\n  walletTotalEthValue += (w.ethBalance || 0) * ethPrice;\n  return {\n    chain: w.chain,\n    usdc: w.usdcBalance || 0,\n    eth: w.ethBalance || 0,\n    eth_usd: (w.ethBalance || 0) * ethPrice,\n  };\n});\n\nconst total_usd = gatewayTotalUsd + walletTotalUsdc + walletTotalEthValue;\n\nreturn [{\n  json: {\n    total_usd,\n    gateway_usd: gatewayTotalUsd,\n    wallet_usdc: walletTotalUsdc,\n    wallet_eth_usd: walletTotalEthValue,\n    chains,\n    wallet_chains,\n    eth_price: ethPrice,\n    timestamp: new Date().toISOString(),\n  }\n}];"
       },
       "id": "format-response",
       "name": "Format Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [660, 0]
+      "position": [750, 100]
     },
     {
       "parameters": {
@@ -101,7 +123,7 @@
       "name": "Respond",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [880, 0]
+      "position": [970, 100]
     }
   ],
   "connections": {
@@ -109,21 +131,32 @@
       "main": [
         [
           { "node": "Fetch Gateway Balance", "type": "main", "index": 0 },
-          { "node": "Fetch ETH Price", "type": "main", "index": 0 }
+          { "node": "Fetch ETH Price", "type": "main", "index": 0 },
+          { "node": "Fetch Wallet Balances", "type": "main", "index": 0 }
         ]
       ]
     },
     "Fetch Gateway Balance": {
       "main": [
-        [{ "node": "Merge Data", "type": "main", "index": 0 }]
+        [{ "node": "Merge Gateway + Price", "type": "main", "index": 0 }]
       ]
     },
     "Fetch ETH Price": {
       "main": [
-        [{ "node": "Merge Data", "type": "main", "index": 1 }]
+        [{ "node": "Merge Gateway + Price", "type": "main", "index": 1 }]
       ]
     },
-    "Merge Data": {
+    "Merge Gateway + Price": {
+      "main": [
+        [{ "node": "Merge All", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Wallet Balances": {
+      "main": [
+        [{ "node": "Merge All", "type": "main", "index": 1 }]
+      ]
+    },
+    "Merge All": {
       "main": [
         [{ "node": "Format Response", "type": "main", "index": 0 }]
       ]

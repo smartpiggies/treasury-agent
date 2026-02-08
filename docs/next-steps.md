@@ -4,12 +4,10 @@ Last updated: 2026-02-07
 
 ## Immediate (Pick up here)
 
-### 1. Fix LI.FI Live Mode Transaction Data
-Live mode LI.FI swap sends transaction but reverts — the `transactionRequest.data` field from the LI.FI quote isn't being passed to the transaction correctly (empty calldata). Investigate the Execute Swap Code node's LI.FI branch to ensure the full `transactionRequest` object is used.
-
-- Test tx (reverted): `0x68c4b6f73496ac6c1da147fca1de76c76783c44fe8cf59e627dc89bc73161f85` on Arbitrum
-- The quote returns a `transactionRequest` with `to`, `data`, `value`, `gasLimit` fields
-- Only `to` is being used; `data` field appears empty in the submitted transaction
+### ~~1. Fix LI.FI Live Mode Transaction Data~~ ✅ Fixed
+~~Live mode LI.FI swap sends transaction but reverts.~~ Root cause was missing ERC-20 approval (not empty calldata as originally diagnosed). Fixed in commit `26907bf` — added allowance check + `MaxUint256` approval before swap. Two successful mainnet txs:
+- n8n: [`0xc30d44...`](https://arbiscan.io/tx/0xc30d44a155374d0545ea882722921fc00c41afdd719bbabc154641b62bad1207) (Arb→Base)
+- Dashboard: [`0xdf0afa...`](https://basescan.org/tx/0xdf0afa3662ef55dcf46ac205750e29ace068e10f971e6a4bee195921c5722a43) (Base→Arb)
 
 ### 2. Make ethers Persistent in Task Runner
 The ethers module was installed in the n8n task runner via symlink, but this is lost on container recreation (`docker compose up -d`). Need a persistent solution:

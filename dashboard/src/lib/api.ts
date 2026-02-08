@@ -63,6 +63,9 @@ export async function requestSwap(params: SwapRequest): Promise<{
 
 export interface TreasuryBalance {
   total_usd: number;
+  gateway_usd?: number;
+  wallet_usdc?: number;
+  wallet_eth_usd?: number;
   eth_price: number;
   timestamp: string;
   chains: Array<{
@@ -70,6 +73,12 @@ export interface TreasuryBalance {
     token: string;
     balance: string;
     balance_usd: number;
+  }>;
+  wallet_chains?: Array<{
+    chain: string;
+    usdc: number;
+    eth: number;
+    eth_usd: number;
   }>;
 }
 
