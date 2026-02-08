@@ -8,6 +8,7 @@ import {
   PiggyBank,
   Menu,
   BookOpen,
+  Github,
 } from "lucide-react";
 import { ConnectButton } from "@/components/wallet/ConnectButton";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
@@ -87,6 +88,15 @@ export function AppLayout() {
           </DropdownMenu>
 
           <div className="ml-auto md:ml-auto flex items-center gap-2 md:gap-4">
+            <a
+              href="https://github.com/smartpiggies/treasury-agent"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="GitHub"
+            >
+              <Github className="h-5 w-5" />
+            </a>
             <ThemeToggle />
             <ConnectButton />
           </div>

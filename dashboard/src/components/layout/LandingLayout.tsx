@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { PiggyBank } from "lucide-react";
+import { PiggyBank, BookOpen, Github } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { Button } from "@/components/ui/button";
 
@@ -20,10 +20,20 @@ export function LandingLayout({ children }: LandingLayoutProps) {
           <div className="flex items-center gap-4">
             <Link
               to="/docs"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
+              <BookOpen className="h-4 w-4" />
               Docs
             </Link>
+            <a
+              href="https://github.com/smartpiggies/treasury-agent"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Github className="h-4 w-4" />
+              GitHub
+            </a>
             <ThemeToggle />
             <Button asChild>
               <Link to="/dashboard">Launch App</Link>
