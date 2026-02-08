@@ -68,12 +68,6 @@ export interface TreasuryBalance {
   wallet_eth_usd?: number;
   eth_price: number;
   timestamp: string;
-  chains: Array<{
-    chain: string;
-    token: string;
-    balance: string;
-    balance_usd: number;
-  }>;
   wallet_chains?: Array<{
     chain: string;
     usdc: number;

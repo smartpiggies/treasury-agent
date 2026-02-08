@@ -314,17 +314,17 @@ export function Dashboard() {
         </Card>
       </div>
 
-      {/* Chain breakdown */}
+      {/* Treasury breakdown */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base md:text-lg">Balances by Chain</CardTitle>
-            <CardDescription>Gateway + wallet balances across all chains</CardDescription>
+            <CardTitle className="text-base md:text-lg">Treasury Breakdown</CardTitle>
+            <CardDescription>Gateway (unified) + wallet balances per chain</CardDescription>
           </CardHeader>
           <CardContent>
             {!isConnected ? (
               <div className="py-8 text-center text-sm text-muted-foreground">
-                Connect your wallet to view balances by chain
+                Connect your wallet to view treasury breakdown
               </div>
             ) : gateway.isLoading && walletBalances.isLoading ? (
               <div className="flex items-center justify-center py-8">
@@ -332,10 +332,24 @@ export function Dashboard() {
               </div>
             ) : (
               <div className="space-y-5">
+                {/* Gateway USDC — unified, chain-abstracted */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-semibold">Circle Gateway</span>
+                    <span className="text-sm font-medium">
+                      {formatCurrency(gateway.totalUsd)}
+                    </span>
+                  </div>
+                  <p className="pl-3 text-xs text-muted-foreground">
+                    Unified USDC — spendable on any chain
+                  </p>
+                </div>
+
+                <hr className="border-border" />
+
+                {/* Per-chain wallet balances */}
                 {(['Arbitrum', 'Base', 'Ethereum'] as const).map((chainName) => {
-                  const gwChain = gateway.chains.find((c) => c.chain === chainName);
                   const walletChain = walletBalances.chains.find((c) => c.chain === chainName);
-                  const gwUsdc = gwChain?.balanceUsd ?? 0;
                   const walletUsdc = walletChain?.usdcBalance ?? 0;
                   const walletEth = walletChain?.ethBalance ?? 0;
                   const ethPrice = treasuryData?.eth_price ?? 0;
@@ -345,18 +359,12 @@ export function Dashboard() {
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-sm font-semibold">{chainName}</span>
                         <span className="text-sm font-medium">
-                          {formatCurrency(gwUsdc + walletUsdc + walletEth * ethPrice)}
+                          {formatCurrency(walletUsdc + walletEth * ethPrice)}
                         </span>
                       </div>
                       <div className="space-y-0.5 pl-3 text-xs text-muted-foreground">
-                        {gwUsdc > 0 && (
-                          <div className="flex justify-between">
-                            <span>Gateway USDC</span>
-                            <span>{formatCurrency(gwUsdc)}</span>
-                          </div>
-                        )}
                         <div className="flex justify-between">
-                          <span>Wallet USDC</span>
+                          <span>USDC</span>
                           <span>{formatCurrency(walletUsdc)}</span>
                         </div>
                         <div className="flex justify-between">
